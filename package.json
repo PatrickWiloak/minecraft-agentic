@@ -1,0 +1,23 @@
+{
+  "name": "minecraft-agentic",
+  "version": "0.1.0",
+  "description": "AI agents that build Minecraft worlds while you watch",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "demo": "node src/demo.js",
+    "crew": "node src/multi-demo.js",
+    "offline": "node src/offline-demo.js"
+  },
+  "dependencies": {
+    "mineflayer": "^4.23.0",
+    "mineflayer-pathfinder": "^2.4.5",
+    "prismarine-viewer": "^1.28.0",
+    "@anthropic-ai/sdk": "^0.52.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

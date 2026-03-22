@@ -1,0 +1,98 @@
+{
+  "name": "The Rusty Pickaxe Tavern",
+  "description": "A cozy medieval tavern with outdoor seating area",
+  "origin": { "x": 0, "y": 64, "z": 0 },
+  "assignments": {
+    "mason": {
+      "task": "Building stone foundation and fireplace",
+      "blocks": [
+        {"x": 0, "y": 0, "z": 0, "type": "cobblestone"}, {"x": 1, "y": 0, "z": 0, "type": "cobblestone"}, {"x": 2, "y": 0, "z": 0, "type": "cobblestone"}, {"x": 3, "y": 0, "z": 0, "type": "cobblestone"}, {"x": 4, "y": 0, "z": 0, "type": "cobblestone"}, {"x": 5, "y": 0, "z": 0, "type": "cobblestone"}, {"x": 6, "y": 0, "z": 0, "type": "cobblestone"}, {"x": 7, "y": 0, "z": 0, "type": "cobblestone"},
+        {"x": 0, "y": 0, "z": 1, "type": "cobblestone"}, {"x": 7, "y": 0, "z": 1, "type": "cobblestone"},
+        {"x": 0, "y": 0, "z": 2, "type": "cobblestone"}, {"x": 7, "y": 0, "z": 2, "type": "cobblestone"},
+        {"x": 0, "y": 0, "z": 3, "type": "cobblestone"}, {"x": 7, "y": 0, "z": 3, "type": "cobblestone"},
+        {"x": 0, "y": 0, "z": 4, "type": "cobblestone"}, {"x": 7, "y": 0, "z": 4, "type": "cobblestone"},
+        {"x": 0, "y": 0, "z": 5, "type": "cobblestone"}, {"x": 7, "y": 0, "z": 5, "type": "cobblestone"},
+        {"x": 0, "y": 0, "z": 6, "type": "cobblestone"}, {"x": 1, "y": 0, "z": 6, "type": "cobblestone"}, {"x": 2, "y": 0, "z": 6, "type": "cobblestone"}, {"x": 3, "y": 0, "z": 6, "type": "cobblestone"}, {"x": 4, "y": 0, "z": 6, "type": "cobblestone"}, {"x": 5, "y": 0, "z": 6, "type": "cobblestone"}, {"x": 6, "y": 0, "z": 6, "type": "cobblestone"}, {"x": 7, "y": 0, "z": 6, "type": "cobblestone"},
+        {"x": 7, "y": 1, "z": 0, "type": "stone_bricks"}, {"x": 7, "y": 2, "z": 0, "type": "stone_bricks"}, {"x": 7, "y": 3, "z": 0, "type": "stone_bricks"}, {"x": 7, "y": 4, "z": 0, "type": "stone_bricks"},
+        {"x": 7, "y": 1, "z": 1, "type": "stone_bricks"}, {"x": 7, "y": 2, "z": 1, "type": "stone_bricks"}, {"x": 7, "y": 3, "z": 1, "type": "stone_bricks"}, {"x": 7, "y": 4, "z": 1, "type": "stone_bricks"},
+        {"x": 7, "y": 5, "z": 0, "type": "stone_brick_stairs"}, {"x": 7, "y": 5, "z": 1, "type": "stone_brick_stairs"}
+      ]
+    },
+    "carpenter": {
+      "task": "Framing walls, floor, and roof",
+      "blocks": [
+        {"x": 1, "y": 0, "z": 1, "type": "oak_planks"}, {"x": 2, "y": 0, "z": 1, "type": "oak_planks"}, {"x": 3, "y": 0, "z": 1, "type": "oak_planks"}, {"x": 4, "y": 0, "z": 1, "type": "oak_planks"}, {"x": 5, "y": 0, "z": 1, "type": "oak_planks"}, {"x": 6, "y": 0, "z": 1, "type": "oak_planks"},
+        {"x": 1, "y": 0, "z": 2, "type": "oak_planks"}, {"x": 2, "y": 0, "z": 2, "type": "oak_planks"}, {"x": 3, "y": 0, "z": 2, "type": "oak_planks"}, {"x": 4, "y": 0, "z": 2, "type": "oak_planks"}, {"x": 5, "y": 0, "z": 2, "type": "oak_planks"}, {"x": 6, "y": 0, "z": 2, "type": "oak_planks"},
+        {"x": 1, "y": 0, "z": 3, "type": "oak_planks"}, {"x": 2, "y": 0, "z": 3, "type": "oak_planks"}, {"x": 3, "y": 0, "z": 3, "type": "oak_planks"}, {"x": 4, "y": 0, "z": 3, "type": "oak_planks"}, {"x": 5, "y": 0, "z": 3, "type": "oak_planks"}, {"x": 6, "y": 0, "z": 3, "type": "oak_planks"},
+        {"x": 1, "y": 0, "z": 4, "type": "oak_planks"}, {"x": 2, "y": 0, "z": 4, "type": "oak_planks"}, {"x": 3, "y": 0, "z": 4, "type": "oak_planks"}, {"x": 4, "y": 0, "z": 4, "type": "oak_planks"}, {"x": 5, "y": 0, "z": 4, "type": "oak_planks"}, {"x": 6, "y": 0, "z": 4, "type": "oak_planks"},
+        {"x": 1, "y": 0, "z": 5, "type": "oak_planks"}, {"x": 2, "y": 0, "z": 5, "type": "oak_planks"}, {"x": 3, "y": 0, "z": 5, "type": "oak_planks"}, {"x": 4, "y": 0, "z": 5, "type": "oak_planks"}, {"x": 5, "y": 0, "z": 5, "type": "oak_planks"}, {"x": 6, "y": 0, "z": 5, "type": "oak_planks"},
+        {"x": 0, "y": 1, "z": 0, "type": "oak_log"}, {"x": 0, "y": 2, "z": 0, "type": "oak_log"}, {"x": 0, "y": 3, "z": 0, "type": "oak_log"},
+        {"x": 0, "y": 1, "z": 6, "type": "oak_log"}, {"x": 0, "y": 2, "z": 6, "type": "oak_log"}, {"x": 0, "y": 3, "z": 6, "type": "oak_log"},
+        {"x": 6, "y": 1, "z": 6, "type": "oak_log"}, {"x": 6, "y": 2, "z": 6, "type": "oak_log"}, {"x": 6, "y": 3, "z": 6, "type": "oak_log"},
+        {"x": 1, "y": 1, "z": 0, "type": "oak_planks"}, {"x": 2, "y": 1, "z": 0, "type": "oak_planks"}, {"x": 4, "y": 1, "z": 0, "type": "oak_planks"}, {"x": 5, "y": 1, "z": 0, "type": "oak_planks"},
+        {"x": 1, "y": 2, "z": 0, "type": "glass_pane"}, {"x": 2, "y": 2, "z": 0, "type": "glass_pane"}, {"x": 4, "y": 2, "z": 0, "type": "glass_pane"}, {"x": 5, "y": 2, "z": 0, "type": "glass_pane"},
+        {"x": 1, "y": 3, "z": 0, "type": "oak_planks"}, {"x": 2, "y": 3, "z": 0, "type": "oak_planks"}, {"x": 3, "y": 3, "z": 0, "type": "oak_planks"}, {"x": 4, "y": 3, "z": 0, "type": "oak_planks"}, {"x": 5, "y": 3, "z": 0, "type": "oak_planks"}, {"x": 6, "y": 3, "z": 0, "type": "oak_planks"},
+        {"x": 0, "y": 1, "z": 1, "type": "oak_planks"}, {"x": 0, "y": 1, "z": 2, "type": "oak_planks"}, {"x": 0, "y": 1, "z": 3, "type": "oak_planks"}, {"x": 0, "y": 1, "z": 4, "type": "oak_planks"}, {"x": 0, "y": 1, "z": 5, "type": "oak_planks"},
+        {"x": 0, "y": 2, "z": 1, "type": "glass_pane"}, {"x": 0, "y": 2, "z": 2, "type": "glass_pane"}, {"x": 0, "y": 2, "z": 4, "type": "glass_pane"}, {"x": 0, "y": 2, "z": 5, "type": "glass_pane"},
+        {"x": 0, "y": 3, "z": 1, "type": "oak_planks"}, {"x": 0, "y": 3, "z": 2, "type": "oak_planks"}, {"x": 0, "y": 3, "z": 3, "type": "oak_planks"}, {"x": 0, "y": 3, "z": 4, "type": "oak_planks"}, {"x": 0, "y": 3, "z": 5, "type": "oak_planks"},
+        {"x": 1, "y": 1, "z": 6, "type": "oak_planks"}, {"x": 2, "y": 1, "z": 6, "type": "oak_planks"}, {"x": 3, "y": 1, "z": 6, "type": "oak_planks"}, {"x": 4, "y": 1, "z": 6, "type": "oak_planks"}, {"x": 5, "y": 1, "z": 6, "type": "oak_planks"},
+        {"x": 1, "y": 2, "z": 6, "type": "oak_planks"}, {"x": 2, "y": 2, "z": 6, "type": "oak_planks"}, {"x": 3, "y": 2, "z": 6, "type": "oak_planks"}, {"x": 4, "y": 2, "z": 6, "type": "oak_planks"}, {"x": 5, "y": 2, "z": 6, "type": "oak_planks"},
+        {"x": 1, "y": 3, "z": 6, "type": "oak_planks"}, {"x": 2, "y": 3, "z": 6, "type": "oak_planks"}, {"x": 3, "y": 3, "z": 6, "type": "oak_planks"}, {"x": 4, "y": 3, "z": 6, "type": "oak_planks"}, {"x": 5, "y": 3, "z": 6, "type": "oak_planks"},
+        {"x": 0, "y": 4, "z": 0, "type": "oak_stairs"}, {"x": 1, "y": 4, "z": 0, "type": "oak_stairs"}, {"x": 2, "y": 4, "z": 0, "type": "oak_stairs"}, {"x": 3, "y": 4, "z": 0, "type": "oak_stairs"}, {"x": 4, "y": 4, "z": 0, "type": "oak_stairs"}, {"x": 5, "y": 4, "z": 0, "type": "oak_stairs"}, {"x": 6, "y": 4, "z": 0, "type": "oak_stairs"},
+        {"x": 0, "y": 4, "z": 6, "type": "oak_stairs"}, {"x": 1, "y": 4, "z": 6, "type": "oak_stairs"}, {"x": 2, "y": 4, "z": 6, "type": "oak_stairs"}, {"x": 3, "y": 4, "z": 6, "type": "oak_stairs"}, {"x": 4, "y": 4, "z": 6, "type": "oak_stairs"}, {"x": 5, "y": 4, "z": 6, "type": "oak_stairs"}, {"x": 6, "y": 4, "z": 6, "type": "oak_stairs"},
+        {"x": 0, "y": 4, "z": 1, "type": "oak_slab"}, {"x": 0, "y": 4, "z": 2, "type": "oak_slab"}, {"x": 0, "y": 4, "z": 3, "type": "oak_slab"}, {"x": 0, "y": 4, "z": 4, "type": "oak_slab"}, {"x": 0, "y": 4, "z": 5, "type": "oak_slab"},
+        {"x": 1, "y": 4, "z": 1, "type": "oak_planks"}, {"x": 2, "y": 4, "z": 1, "type": "oak_planks"}, {"x": 3, "y": 4, "z": 1, "type": "oak_planks"}, {"x": 4, "y": 4, "z": 1, "type": "oak_planks"}, {"x": 5, "y": 4, "z": 1, "type": "oak_planks"}, {"x": 6, "y": 4, "z": 1, "type": "oak_planks"},
+        {"x": 1, "y": 4, "z": 2, "type": "oak_planks"}, {"x": 2, "y": 4, "z": 2, "type": "oak_planks"}, {"x": 3, "y": 4, "z": 2, "type": "oak_planks"}, {"x": 4, "y": 4, "z": 2, "type": "oak_planks"}, {"x": 5, "y": 4, "z": 2, "type": "oak_planks"}, {"x": 6, "y": 4, "z": 2, "type": "oak_planks"},
+        {"x": 1, "y": 4, "z": 3, "type": "oak_planks"}, {"x": 2, "y": 4, "z": 3, "type": "oak_planks"}, {"x": 3, "y": 4, "z": 3, "type": "oak_planks"}, {"x": 4, "y": 4, "z": 3, "type": "oak_planks"}, {"x": 5, "y": 4, "z": 3, "type": "oak_planks"}, {"x": 6, "y": 4, "z": 3, "type": "oak_planks"},
+        {"x": 1, "y": 4, "z": 4, "type": "oak_planks"}, {"x": 2, "y": 4, "z": 4, "type": "oak_planks"}, {"x": 3, "y": 4, "z": 4, "type": "oak_planks"}, {"x": 4, "y": 4, "z": 4, "type": "oak_planks"}, {"x": 5, "y": 4, "z": 4, "type": "oak_planks"}, {"x": 6, "y": 4, "z": 4, "type": "oak_planks"},
+        {"x": 1, "y": 4, "z": 5, "type": "oak_planks"}, {"x": 2, "y": 4, "z": 5, "type": "oak_planks"}, {"x": 3, "y": 4, "z": 5, "type": "oak_planks"}, {"x": 4, "y": 4, "z": 5, "type": "oak_planks"}, {"x": 5, "y": 4, "z": 5, "type": "oak_planks"}, {"x": 6, "y": 4, "z": 5, "type": "oak_planks"},
+        {"x": 6, "y": 4, "z": 6, "type": "oak_slab"},
+        {"x": 3, "y": 1, "z": 0, "type": "oak_door"}
+      ]
+    },
+    "decorator": {
+      "task": "Adding interior furnishings and lighting",
+      "blocks": [
+        {"x": 2, "y": 1, "z": 2, "type": "crafting_table"},
+        {"x": 2, "y": 1, "z": 3, "type": "barrel"},
+        {"x": 2, "y": 1, "z": 4, "type": "barrel"},
+        {"x": 5, "y": 1, "z": 2, "type": "oak_stairs"},
+        {"x": 5, "y": 1, "z": 3, "type": "oak_stairs"},
+        {"x": 5, "y": 1, "z": 4, "type": "oak_stairs"},
+        {"x": 4, "y": 1, "z": 3, "type": "oak_slab"},
+        {"x": 6, "y": 2, "z": 0, "type": "campfire"},
+        {"x": 1, "y": 3, "z": 3, "type": "lantern"},
+        {"x": 5, "y": 3, "z": 3, "type": "lantern"},
+        {"x": 3, "y": 1, "z": 5, "type": "chest"},
+        {"x": 4, "y": 1, "z": 5, "type": "bookshelf"},
+        {"x": 2, "y": 2, "z": 2, "type": "flower_pot"},
+        {"x": 4, "y": 2, "z": 3, "type": "cake"}
+      ]
+    },
+    "landscaper": {
+      "task": "Creating outdoor seating and garden",
+      "blocks": [
+        {"x": -2, "y": 0, "z": 2, "type": "grass_block"}, {"x": -2, "y": 0, "z": 3, "type": "grass_block"}, {"x": -2, "y": 0, "z": 4, "type": "grass_block"},
+        {"x": -3, "y": 0, "z": 2, "type": "grass_block"}, {"x": -3, "y": 0, "z": 3, "type": "grass_block"}, {"x": -3, "y": 0, "z": 4, "type": "grass_block"},
+        {"x": -2, "y": 1, "z": 2, "type": "oak_fence"}, {"x": -2, "y": 1, "z": 4, "type": "oak_fence"},
+        {"x": -3, "y": 1, "z": 3, "type": "oak_slab"},
+        {"x": -2, "y": 1, "z": 3, "type": "oak_pressure_plate"},
+        {"x": -4, "y": 0, "z": 1, "type": "dirt"}, {"x": -4, "y": 1, "z": 1, "type": "poppy"},
+        {"x": -4, "y": 0, "z": 3, "type": "dirt"}, {"x": -4, "y": 1, "z": 3, "type": "dandelion"},
+        {"x": -4, "y": 0, "z": 5, "type": "dirt"}, {"x": -4, "y": 1, "z": 5, "type": "cornflower"},
+        {"x": -1, "y": 0, "z": -1, "type": "dirt"}, {"x": -1, "y": 1, "z": -1, "type": "oak_sapling"},
+        {"x": 8, "y": 0, "z": 3, "type": "water"},
+        {"x": -3, "y": 1, "z": 2, "type": "torch"}, {"x": -3, "y": 1, "z": 4, "type": "torch"}
+      ]
+    }
+  },
+  "buildOrder": ["mason", "carpenter", "decorator", "landscaper"],
+  "teamChat": [
+    { "from": "mason", "message": "I'll lay the foundation and build the fireplace!" },
+    { "from": "carpenter", "message": "Nice! I'll frame the walls once you're set." },
+    { "from": "decorator", "message": "Ooh, I'm thinking lanterns and a cozy bar setup!" },
+    { "from": "landscaper", "message": "I'll make the outdoor seating area beautiful!" },
+    { "from": "mason", "message": "Foundation done, she's solid!" },
+    { "from": "carpenter", "message": "Walls and roof going up!" }
+  ]
+}
