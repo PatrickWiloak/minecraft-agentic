@@ -1,0 +1,132 @@
+{
+  ".claude/settings.json": {
+    "mtime": 1781056569.81227,
+    "ast_hash": "bfee062c3962c14264fd704e975a6b38",
+    "semantic_hash": ""
+  },
+  ".vscode/settings.json": {
+    "mtime": 1779072226.7157176,
+    "ast_hash": "831ed7f7eb8d4c6b70e0e4b6e182d3e1",
+    "semantic_hash": ""
+  },
+  "package.json": {
+    "mtime": 1779072226.7157176,
+    "ast_hash": "e9cfc7672b7e7e7d925dd9472699e9ef",
+    "semantic_hash": ""
+  },
+  "src/agent.js": {
+    "mtime": 1779072226.7157176,
+    "ast_hash": "2248d972165d29247db3b2e56767e1ff",
+    "semantic_hash": ""
+  },
+  "src/bot.js": {
+    "mtime": 1779072226.7157176,
+    "ast_hash": "f908e7d28c170d5d401647fb7869450b",
+    "semantic_hash": ""
+  },
+  "src/builder.js": {
+    "mtime": 1779072226.7157176,
+    "ast_hash": "d144466e06af51e191e19aa0618cda68",
+    "semantic_hash": ""
+  },
+  "src/coordinator.js": {
+    "mtime": 1779072226.7157176,
+    "ast_hash": "43ae27c41d24c997bde3c080c40b9ae2",
+    "semantic_hash": ""
+  },
+  "src/crew.js": {
+    "mtime": 1779072226.7157176,
+    "ast_hash": "726b3fa602ea70abfa23d4056474e934",
+    "semantic_hash": ""
+  },
+  "src/demo.js": {
+    "mtime": 1779072226.7157176,
+    "ast_hash": "b3fb2aac8386ac0e28e23b5b9bb80193",
+    "semantic_hash": ""
+  },
+  "src/index.js": {
+    "mtime": 1779072226.7157176,
+    "ast_hash": "c437b49baa82ef973a2ff11771df9aa9",
+    "semantic_hash": ""
+  },
+  "src/multi-demo.js": {
+    "mtime": 1779072226.7157176,
+    "ast_hash": "cc8fd37da32a239e1ebe4df3b93fb088",
+    "semantic_hash": ""
+  },
+  "src/offline-demo.js": {
+    "mtime": 1779072226.7197177,
+    "ast_hash": "dba5269a7014b2dce9c37b9051fc21a4",
+    "semantic_hash": ""
+  },
+  "src/plans/tavern.json": {
+    "mtime": 1779072226.7197177,
+    "ast_hash": "c1c1e186d2e4b8647faa3804a8e8ffdc",
+    "semantic_hash": ""
+  },
+  "src/worker.js": {
+    "mtime": 1779072226.7197177,
+    "ast_hash": "e69ccb258d84a2529cdf46ed450caad6",
+    "semantic_hash": ""
+  },
+  ".claude/CLAUDE.md": {
+    "mtime": 1781056569.81227,
+    "ast_hash": "db73b0edd7ffbc61ceac177130730865",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/SKILL.md": {
+    "mtime": 1781056569.81227,
+    "ast_hash": "41f700d6535cc2f2b6b6d0a9eecc7525",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/add-watch.md": {
+    "mtime": 1781056045.3602674,
+    "ast_hash": "0df0589623217ca38a12bdcabfb42f4c",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/exports.md": {
+    "mtime": 1781056045.3602674,
+    "ast_hash": "7fb1a81aca17a462db70684a324fcfb0",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/extraction-spec.md": {
+    "mtime": 1781056045.3602674,
+    "ast_hash": "24808b03abfeaf5f6435bb69c0125b2c",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/github-and-merge.md": {
+    "mtime": 1781056045.3642673,
+    "ast_hash": "cde13df085e4c492aeb7ba298a996d0d",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/hooks.md": {
+    "mtime": 1781056045.3642673,
+    "ast_hash": "3f545db6ce646650bb9de588f5512a27",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/query.md": {
+    "mtime": 1781056045.3642673,
+    "ast_hash": "8b40ed8c9e9060fc215219a8fc964091",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/transcribe.md": {
+    "mtime": 1781056045.3642673,
+    "ast_hash": "70f6aa30d6211f3a2c7e9fc45479f50c",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/update.md": {
+    "mtime": 1781056045.3642673,
+    "ast_hash": "0dad167a95bdb389f02fecffb60b1bc8",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1781056569.81227,
+    "ast_hash": "2db2aaf887621a987af346434c0972f0",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1779072226.7157176,
+    "ast_hash": "9f04632ace3b3510212c18ef2dfcec74",
+    "semantic_hash": ""
+  }
+}
