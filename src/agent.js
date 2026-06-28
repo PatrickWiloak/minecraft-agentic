@@ -1,5 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 
+// model pinned 2026-06-28; bump here (or via ANTHROPIC_MODEL env) when migrating (was claude-sonnet-4-20250514 -> <new>)
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
+
 const SYSTEM_PROMPT = `You are a Minecraft builder agent. Given a description of what to build, you output a JSON build plan.
 
 Your response must be valid JSON with this structure:
@@ -35,7 +38,7 @@ export class BuilderAgent {
     console.log(`[Agent] Generating build plan for: "${prompt}"`);
 
     const response = await this.client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: MODEL,
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
       messages: [
@@ -79,7 +82,7 @@ export class BuilderAgent {
 
   async chat(message) {
     const response = await this.client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: MODEL,
       max_tokens: 150,
       system: 'You are a friendly Minecraft builder bot. Keep responses short and fun (under 100 chars). Use Minecraft humor.',
       messages: [{ role: 'user', content: message }]

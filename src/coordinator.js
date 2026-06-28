@@ -1,5 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 
+// model pinned 2026-06-28; bump here (or via ANTHROPIC_MODEL env) when migrating (was claude-sonnet-4-20250514 -> <new>)
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
+
 const COORDINATOR_PROMPT = `You are the lead architect coordinating a Minecraft build team. Given a build request, create a detailed plan that divides work among specialized workers.
 
 Your team:
@@ -63,7 +66,7 @@ export class Coordinator {
     console.log(`[Coordinator] Planning collaborative build: "${prompt}"`);
 
     const response = await this.client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: MODEL,
       max_tokens: 8192,
       system: COORDINATOR_PROMPT,
       messages: [
@@ -112,7 +115,7 @@ export class Coordinator {
 
   async generateBanter(context) {
     const response = await this.client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: MODEL,
       max_tokens: 200,
       system: 'Generate short, funny Minecraft builder banter. One line, under 80 chars.',
       messages: [{ role: 'user', content: context }]
