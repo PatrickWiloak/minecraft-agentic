@@ -13,7 +13,10 @@ import 'dotenv/config';
 
 const DEFAULT_MODELS = {
   claude: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-  gemini: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+  // gemini-flash-latest tracks the current free-tier flash model. Pinned names like
+  // gemini-2.0-flash can carry a free-tier quota of 0 for some accounts/regions (429
+  // "limit: 0"); the -latest alias is the reliably-free default. Override with GEMINI_MODEL.
+  gemini: process.env.GEMINI_MODEL || 'gemini-flash-latest',
   openai: process.env.OPENAI_MODEL || 'gpt-4o',
   ollama: process.env.OLLAMA_MODEL || 'llama3.1',
 };

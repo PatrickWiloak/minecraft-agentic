@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "src/coordinator.js": {
-    "mtime": 1783743715.4574287,
-    "ast_hash": "41e2e5cd44ead93132a2bd10f9f1a5f0",
+    "mtime": 1783785345.9213557,
+    "ast_hash": "d575c595aba5b8cc4996a66d0851bab6",
     "semantic_hash": ""
   },
   "src/crew.js": {
@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1783782982.0293543,
-    "ast_hash": "99323e3652f473f63ecbb6b307424e91",
+    "mtime": 1783785952.6773534,
+    "ast_hash": "31740d30cf37dad60b7a17a6279c7aa7",
     "semantic_hash": ""
   },
   "src/viewer.js": {
@@ -135,13 +135,13 @@
     "semantic_hash": ""
   },
   "TODO.md": {
-    "mtime": 1783783038.1693552,
-    "ast_hash": "57a0e0e71ffa716dd031a2bdab0849e3",
+    "mtime": 1783785979.541354,
+    "ast_hash": "1fc02ca8ad8ae3ab41696eeedb20489e",
     "semantic_hash": ""
   },
   "docs/SETUP.md": {
-    "mtime": 1783781267.249352,
-    "ast_hash": "4b95bb3c31f84e5165d27f073d57071a",
+    "mtime": 1783785541.4453542,
+    "ast_hash": "109578f5eabb286799c393f6072e78f9",
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
@@ -160,8 +160,8 @@
     "semantic_hash": ""
   },
   "src/preflight.js": {
-    "mtime": 1783781254.005352,
-    "ast_hash": "af40a3d709830418ef435ed86f489d7c",
+    "mtime": 1783785175.737355,
+    "ast_hash": "7d0326aa8b8afe5756479c8f1d563218",
     "semantic_hash": ""
   },
   "docker-compose.yml": {
@@ -170,7 +170,7 @@
     "semantic_hash": ""
   },
   "docker/ops.json": {
-    "mtime": 1783782210.105352,
+    "mtime": 1783785521.2133546,
     "ast_hash": "eb8c368d74dda529a83972b944570afd",
     "semantic_hash": ""
   },
@@ -200,13 +200,13 @@
     "semantic_hash": ""
   },
   "src/providers.js": {
-    "mtime": 1783778895.9573479,
-    "ast_hash": "c1b9e1c5d049865c6f3fecea9b9b7806",
+    "mtime": 1783785283.161356,
+    "ast_hash": "3e32e00cdb531f88c38fd16d255af024",
     "semantic_hash": ""
   },
   "docs/media/crew-castle-timelapse-640x360-11JUL2026.webp": {
-    "mtime": 1783782930.521351,
-    "ast_hash": "7b547e750e6c0c50962a911915f466fe",
+    "mtime": 1783785913.489353,
+    "ast_hash": "79fe48165cb2812714cf295e2613e7a9",
     "semantic_hash": ""
   }
 }

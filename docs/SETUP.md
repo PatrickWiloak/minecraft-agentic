@@ -67,12 +67,16 @@ Gemini has a genuinely free tier, so custom builds can cost nothing. You only ne
    LLM_PROVIDER=gemini
    GEMINI_API_KEY=AIzaYOURKEYHERE
    ```
-5. `npm run play` - it should print `Backend: Gemini (gemini-2.0-flash)`.
+5. `npm run play` - it should print `Backend: Gemini (gemini-flash-latest)`.
 
-> **"Prepayment credits are depleted" / 429 errors?** Your key is valid but that Google project
-> has no available quota. Free-tier limits reset over time; if the project has billing enabled but
-> no credit, either wait for the quota window or create a key in a fresh project at the link above.
-> Model is set with `GEMINI_MODEL` (default `gemini-2.0-flash`).
+> **429 errors with `limit: 0`?** Your key is valid, but the free-tier quota for that specific
+> model is 0 for your account/region (Google varies free-tier eligibility by model and location).
+> The default model is `gemini-flash-latest`, which tracks whichever flash model is currently
+> free - if a pinned name like `gemini-2.0-flash` gives `limit: 0`, that alias is the fix. Try
+> another model with `GEMINI_MODEL=` (e.g. `gemini-flash-latest`, `gemini-2.5-flash`).
+>
+> **429 that says "retry in Ns" (no `limit: 0`)?** That's just the per-minute free-tier rate
+> limit - wait a moment and rerun. A single build is only a few calls, so this is rare.
 
 ### Get an Anthropic Claude key (paid - highest quality)
 

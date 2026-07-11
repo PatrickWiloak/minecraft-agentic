@@ -1,16 +1,16 @@
 # Graph Report - minecraft-agentic  (2026-07-11)
 
 ## Corpus Check
-- 40 files · ~155,909 words
+- 40 files · ~159,581 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 341 nodes · 518 edges · 28 communities (20 shown, 8 thin omitted)
+- 341 nodes · 523 edges · 28 communities (20 shown, 8 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `fe14c3f7`
+- Built from commit: `1ece22da`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -52,8 +52,8 @@
 6. `startViewer()` - 12 edges
 7. `Worker` - 12 edges
 8. `⛏️ Minecraft Agentic Builder` - 12 edges
-9. `What You Must Do When Invoked` - 11 edges
-10. `main()` - 10 edges
+9. `requireApiKey()` - 11 edges
+10. `isLiveProvider()` - 11 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `buildCustom()` --calls--> `providerLabel()`  [EXTRACTED]
@@ -159,7 +159,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Why does `Builder` connect `Community 6` to `Community 3`?**
   _High betweenness centrality (0.031) - this node is a cross-community bridge._
 - **Why does `Worker` connect `Community 8` to `Community 3`?**
-  _High betweenness centrality (0.028) - this node is a cross-community bridge._
+  _High betweenness centrality (0.027) - this node is a cross-community bridge._
 - **What connects `PreToolUse`, `allow`, `kiroAgent.configureMCP` to the rest of the system?**
   _154 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**

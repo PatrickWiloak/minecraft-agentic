@@ -4,6 +4,7 @@ import net from 'net';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { detectProvider, isLiveProvider } from './providers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
@@ -19,26 +20,32 @@ function fail(lines) {
 function checkEnvFile() {
   const envPath = path.join(repoRoot, '.env');
   if (!fs.existsSync(envPath)) {
-    console.warn('\n\x1b[33m! No .env file found.\x1b[0m Copy the example and add your key:');
-    console.warn('    cp .env.example .env      # then set ANTHROPIC_API_KEY\n');
+    console.warn('\n\x1b[33m! No .env file found.\x1b[0m Copy the example and add a key:');
+    console.warn('    cp .env.example .env      # then set ONE provider key (GEMINI is free)\n');
   }
 }
 
-/** Fail early if the API key is missing (only when we actually need Claude). */
+/**
+ * Fail early if no live LLM provider is configured (only on paths that need a model
+ * to design a custom build). ANY of Gemini/Claude/OpenAI/Ollama satisfies this - it is
+ * NOT Anthropic-specific. With no key the caller should use the library instead.
+ */
 export function requireApiKey() {
   checkEnvFile();
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key || key === 'your-api-key-here' || !key.trim()) {
-    fail([
-      'ANTHROPIC_API_KEY is not set.',
-      '',
-      '  1. Get a key at https://console.anthropic.com/',
-      '  2. cp .env.example .env',
-      '  3. Put the key in .env:  ANTHROPIC_API_KEY=sk-ant-...',
-      '',
-      '  (No key yet? Try `npm run offline` - it needs no key or server.)',
-    ]);
-  }
+  if (isLiveProvider(detectProvider())) return; // gemini / claude / openai / ollama configured
+  fail([
+    'No AI provider is configured for custom (typed-prompt) builds.',
+    '',
+    '  Set ONE key in .env - it is auto-detected:',
+    '    GEMINI_API_KEY=...     free tier   https://aistudio.google.com/apikey',
+    '    ANTHROPIC_API_KEY=...  paid        https://console.anthropic.com/',
+    '    OPENAI_API_KEY=...     paid        https://platform.openai.com/',
+    '  ...or run a local model:  LLM_PROVIDER=ollama  (needs Ollama running).',
+    '',
+    '  No key? You do not need one - the free built-in library builds without it:',
+    '    npm run play      # menu of curated builds (no key)',
+    '    npm run offline   # no server or key - prints a sample plan',
+  ]);
 }
 
 /** Resolve TCP-reachability of the Minecraft server. Returns a boolean. */

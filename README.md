@@ -12,7 +12,7 @@ You don't even need to own the game.**
 
 <img src="docs/media/crew-castle-timelapse-640x360-11JUL2026.webp" alt="Four AI bots building Stonewatch Keep, captured live from the built-in browser viewer" width="800">
 
-*Rocky, Woody, Fancy, and Bloom building Stonewatch Keep (2,936 blocks) - recorded straight
+*Rocky, Woody, Fancy, and Bloom building Stonewatch Keep (2,937 blocks) - recorded straight
 from the built-in browser viewer at `http://localhost:3000`. No Minecraft client involved.*
 
 </div>

@@ -112,13 +112,18 @@ export class Coordinator {
 
 // Extract and parse a JSON plan from a model response (handles ```json fences).
 function parsePlan(content) {
-  try {
-    const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) ||
-                      content.match(/```\n?([\s\S]*?)\n?```/);
-    const jsonStr = jsonMatch ? jsonMatch[1] : content;
-    return JSON.parse(jsonStr);
-  } catch (err) {
-    console.error('[Coordinator] Failed to parse plan:', err.message);
-    throw new Error('The model did not return valid JSON. Try again, or use a stronger model.');
+  // Try, in order: a ```json fence, any ``` fence, the raw string, then the widest
+  // {...} span (handles models that wrap JSON in prose like "Here is the JSON: {...}").
+  const candidates = [];
+  const fenced = content.match(/```json\n?([\s\S]*?)\n?```/) || content.match(/```\n?([\s\S]*?)\n?```/);
+  if (fenced) candidates.push(fenced[1]);
+  candidates.push(content);
+  const first = content.indexOf('{'), last = content.lastIndexOf('}');
+  if (first !== -1 && last > first) candidates.push(content.slice(first, last + 1));
+
+  for (const c of candidates) {
+    try { return JSON.parse(c.trim()); } catch { /* try the next candidate */ }
   }
+  console.error('[Coordinator] Failed to parse plan. First 200 chars:', content.slice(0, 200));
+  throw new Error('The model did not return valid JSON. Try again, or use a stronger model.');
 }

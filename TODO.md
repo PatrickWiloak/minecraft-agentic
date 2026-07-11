@@ -6,7 +6,6 @@ Working task list for **minecraft-agentic**. Read this at the start of a work se
 
 ## Open
 
-- [ ] Fix Gemini quota: the configured key is valid but its Google project reports "prepayment credits are depleted" (429). Create a key in a project with free-tier headroom, then verify one live Gemini crew build end-to-end.
 - [ ] Verify one live Claude and OpenAI build once keys are available (code paths written, never exercised against the real APIs).
 - [ ] Re-record the hero clip at higher fidelity if desired (current one is headless-captured at 640x360; a manual OBS capture with hand-driven camera would look even better). The 720p MP4 master lives outside the repo (scratchpad `deliverables/`).
 - [ ] Before making the repo public: gitignore `graphify-out/` (public-repo rule), scan git history for secrets.
@@ -15,6 +14,8 @@ Working task list for **minecraft-agentic**. Read this at the start of a work se
 
 ## Done
 
+- [x] ~~**Live Gemini path verified end-to-end** - first-ever real LLM build: Gemini designed "Arasaka Cyberpunk Spire" (339 blocks) and the crew built it, 0 errors. Fixes needed to get there: (a) preflight `requireApiKey()` was Anthropic-only - now provider-aware (accepts any of gemini/claude/openai/ollama); (b) default Gemini model `gemini-2.0-flash` had free-tier `limit: 0` for this account - switched default to `gemini-flash-latest`; (c) hardened `parsePlan()` with a brace-extraction fallback for models that wrap JSON in prose~~ ✅ done 2026-07-11
+- [x] ~~**Fixed the demo clip camera** - was swaying back-and-forth (recorder did `dir *= -1`); now a LOCKED overview during the build + a single-direction reveal orbit at the end. Re-recorded (2,937 blocks)~~ ✅ done 2026-07-11
 - [x] ~~**Record a demo clip + embed at top of README** - recorded the crew building Stonewatch Keep (2,936 blocks) via headless Chromium capturing the live browser viewer; two-speed timelapse edit (14x build, 2.2x reveal); `docs/media/crew-castle-timelapse-640x360-11JUL2026.webp` (3.5MB animated WebP)~~ ✅ done 2026-07-11
 - [x] ~~**Migrate the whole stack 1.20.4 -> 1.20.1** - prismarine-viewer only supports 1.20.1 exactly; on 1.20.4 block-state IDs shift and the browser view renders wrong blocks (stone bricks showed as beehives). Verified with an in-world rendered palette-grid screenshot: all preset blocks now render correctly~~ ✅ done 2026-07-11
 - [x] ~~**Fix: port-open ≠ server-ready** - after `server:reset`, bots connected during world gen and died with EPIPE; `scripts/server.js` now waits for the current boot's `Done (…)!` log line~~ ✅ done 2026-07-11
