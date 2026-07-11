@@ -1,0 +1,40 @@
+# One-command local Minecraft server for the bots to build in.
+#   npm run server        # start it (docker compose up -d)
+#   npm run server:logs   # watch until you see "Done!"
+#   npm run server:stop   # stop it
+#
+# Pinned to 1.20.1 (the version the bots target - exactly supported by the browser viewer) with online-mode off so the
+# bots can log in without paid accounts. This server is local-only - do not
+# expose port 25565 to the internet.
+services:
+  minecraft:
+    image: itzg/minecraft-server:java21
+    container_name: minecraft-agentic
+    ports:
+      - "25565:25565"
+    environment:
+      EULA: "TRUE"
+      ONLINE_MODE: "FALSE"
+      ENABLE_COMMAND_BLOCK: "TRUE"
+      VERSION: "1.20.1"
+      MEMORY: "1G"
+      # Normal terrain on purpose (positive Y). Do NOT use a superflat world: its ground is
+      # at y=-60, and prismarine-viewer's browser camera only frames the build when the bot's
+      # y > 0, so a flat world leaves the viewer staring at empty space.
+    volumes:
+      - mc-data:/data
+      # CRITICAL: the bots build with /setblock, /fill and /tp, which require operator
+      # permission. We mount a prebuilt ops.json listing every default bot username with
+      # its OFFLINE uuid (online-mode is off, so the usual `OPS` env - which does an online
+      # PlayerDB lookup - fails). If you use a custom MC_USERNAME, regenerate this file:
+      #   npm run ops    (writes docker/ops.json)
+      - ./docker/ops.json:/data/ops.json
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc-health"]
+      start_period: 90s
+      interval: 5s
+      retries: 20
+
+volumes:
+  mc-data:

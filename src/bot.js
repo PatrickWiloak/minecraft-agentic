@@ -9,7 +9,10 @@ export function createBot(options = {}) {
     host: options.host || process.env.MC_HOST || 'localhost',
     port: parseInt(options.port || process.env.MC_PORT || '25565'),
     username: options.username || process.env.MC_USERNAME || 'BuilderBot',
-    version: options.version || '1.20.4',
+    // 1.20.1 on purpose: it's a version prismarine-viewer supports EXACTLY, so the
+    // browser viewer renders every block correctly. (1.20.4 shifts block-state IDs
+    // vs the viewer's 1.20.1 assets - stone walls render as beehives. Ask us how we know.)
+    version: options.version || process.env.MC_VERSION || '1.20.1',
   });
 
   bot.loadPlugin(pathfinder);

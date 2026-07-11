@@ -1,7 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk';
-
-// model pinned 2026-06-28; bump here (or via ANTHROPIC_MODEL env) when migrating (was claude-sonnet-4-20250514 -> <new>)
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
+import { complete, isLiveProvider, providerLabel } from './providers.js';
+import { getLibraryPlan } from './library/index.js';
 
 const SYSTEM_PROMPT = `You are a Minecraft builder agent. Given a description of what to build, you output a JSON build plan.
 
@@ -16,10 +14,16 @@ Your response must be valid JSON with this structure:
   "narration": ["First I'll lay the foundation...", "Now adding walls...", ...]
 }
 
+Make it IMPRESSIVE (this is watched as a show):
+- Go big: 400-800 blocks. Give it height and a recognizable silhouette.
+- Detail it: windows (glass/glass_pane), a real door, a proper roof (stairs), and lighting
+  (torches, lanterns, glowstone) so it reads well and glows.
+- Vary materials for contrast; add features that fit the prompt.
+
 Rules:
 - Use relative coordinates starting from 0,0,0 (the build origin)
 - Use valid Minecraft block names (oak_planks, stone_bricks, glass, oak_door, torch, etc.)
-- Keep builds reasonable size (under 500 blocks for quick demos)
+- 400-800 blocks (hard ceiling 800 so the plan isn't truncated)
 - Include 3-5 narration messages the bot can say while building
 - Build from bottom to top (lower Y values first)
 - Be creative but structurally sound
@@ -27,42 +31,41 @@ Rules:
 Common block types: stone, cobblestone, stone_bricks, oak_planks, oak_log, glass, glass_pane, oak_door, oak_stairs, torch, lantern, chest, crafting_table, furnace, bookshelf, wool (white_wool, red_wool, etc.), concrete, terracotta`;
 
 export class BuilderAgent {
-  constructor(apiKey) {
-    this.client = new Anthropic({ apiKey });
+  // apiKey kept for backwards compatibility; providers read keys from env directly.
+  constructor(_apiKey) {
     this.buildHistory = [];
   }
 
   async generateBuildPlan(prompt, context = {}) {
     const { originX = 0, originY = 64, originZ = 0 } = context;
 
-    console.log(`[Agent] Generating build plan for: "${prompt}"`);
-
-    const response = await this.client.messages.create({
-      model: MODEL,
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: `Build this: ${prompt}\n\nBuild origin will be at X=${originX}, Y=${originY}, Z=${originZ}. Output only valid JSON.`
-        }
-      ]
-    });
-
-    const content = response.content[0].text;
-
-    // Parse JSON from response
     let plan;
-    try {
-      // Try to extract JSON if wrapped in markdown
-      const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) ||
-                        content.match(/```\n?([\s\S]*?)\n?```/);
-      const jsonStr = jsonMatch ? jsonMatch[1] : content;
-      plan = JSON.parse(jsonStr);
-    } catch (err) {
-      console.error('[Agent] Failed to parse build plan:', err.message);
-      console.error('[Agent] Raw response:', content);
-      throw new Error('Failed to generate valid build plan');
+    if (!isLiveProvider()) {
+      // No live LLM configured - flatten a built-in library build into a single-agent plan.
+      const lib = getLibraryPlan(process.env.LIBRARY_BUILD || 'random');
+      const blocks = Object.values(lib.assignments).flatMap(a => a.blocks || []);
+      plan = {
+        name: lib.name,
+        description: lib.description,
+        blocks,
+        narration: (lib.teamChat || []).map(t => t.message),
+      };
+      console.log(`[Agent] No LLM key set - using built-in library build: "${plan.name}"`);
+    } else {
+      console.log(`[Agent] Generating "${prompt}" with ${providerLabel()}...`);
+      const content = await complete({
+        system: SYSTEM_PROMPT,
+        maxTokens: 12288,
+        user: `Build this: ${prompt}\n\nBuild origin will be at X=${originX}, Y=${originY}, Z=${originZ}. Output only valid JSON.`,
+      });
+      try {
+        const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) ||
+                          content.match(/```\n?([\s\S]*?)\n?```/);
+        plan = JSON.parse(jsonMatch ? jsonMatch[1] : content);
+      } catch (err) {
+        console.error('[Agent] Failed to parse build plan:', err.message);
+        throw new Error('The model did not return valid JSON. Try again, or use a stronger model.');
+      }
     }
 
     // Offset coordinates to world position
@@ -76,17 +79,7 @@ export class BuilderAgent {
     plan.origin = { x: originX, y: originY, z: originZ };
     this.buildHistory.push(plan);
 
-    console.log(`[Agent] Plan generated: ${plan.name} (${plan.blocks.length} blocks)`);
+    console.log(`[Agent] Plan ready: ${plan.name} (${plan.blocks.length} blocks)`);
     return plan;
-  }
-
-  async chat(message) {
-    const response = await this.client.messages.create({
-      model: MODEL,
-      max_tokens: 150,
-      system: 'You are a friendly Minecraft builder bot. Keep responses short and fun (under 100 chars). Use Minecraft humor.',
-      messages: [{ role: 'user', content: message }]
-    });
-    return response.content[0].text;
   }
 }

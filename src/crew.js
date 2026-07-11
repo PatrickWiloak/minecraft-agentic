@@ -1,5 +1,6 @@
 import { Worker } from './worker.js';
 import { Coordinator } from './coordinator.js';
+import { startViewer } from './viewer.js';
 
 export class Crew {
   constructor(apiKey, serverOptions = {}) {
@@ -40,6 +41,13 @@ export class Crew {
       await worker.teleportTo(origin.x - 5, origin.y, origin.z - 5);
     }
     await this.sleep(1000);
+
+    // Start the browser viewer now that the bots are AT the build site. The viewer
+    // locks its camera onto the bound bot's first reported position, so starting it
+    // here frames the build (not the bots' spawn point). One shared view for the crew.
+    if (this.activeWorkers.length > 0) {
+      await startViewer(this.activeWorkers[0].bot);
+    }
 
     // Clear area
     const allBlocks = Object.values(plan.assignments).flatMap(a => a.blocks);

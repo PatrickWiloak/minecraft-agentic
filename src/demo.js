@@ -2,6 +2,8 @@ import 'dotenv/config';
 import { createBot, waitForSpawn } from './bot.js';
 import { Builder } from './builder.js';
 import { BuilderAgent } from './agent.js';
+import { startViewer } from './viewer.js';
+import { requireApiKey, requireMinecraftServer } from './preflight.js';
 
 const DEMO_BUILDS = [
   'a small cozy cottage with a chimney and garden',
@@ -20,6 +22,10 @@ async function demo() {
 
   const prompt = process.argv[2] || DEMO_BUILDS[Math.floor(Math.random() * DEMO_BUILDS.length)];
 
+  // Fail fast with friendly guidance if the key or server is missing
+  requireApiKey();
+  await requireMinecraftServer();
+
   console.log(`Demo build: "${prompt}"\n`);
 
   // Create bot
@@ -33,6 +39,9 @@ async function demo() {
   console.log('Connecting to server...');
   await waitForSpawn(bot);
   await builder.init();
+
+  // Open the browser viewer so you can watch without the Minecraft game
+  await startViewer(bot);
 
   await sleep(1000);
 

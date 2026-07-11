@@ -10,18 +10,18 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1779072226.7157176,
-    "ast_hash": "e9cfc7672b7e7e7d925dd9472699e9ef",
+    "mtime": 1783780049.237354,
+    "ast_hash": "695a124a5b5823be0f956e7e7cd8226f",
     "semantic_hash": ""
   },
   "src/agent.js": {
-    "mtime": 1779072226.7157176,
-    "ast_hash": "2248d972165d29247db3b2e56767e1ff",
+    "mtime": 1783743756.3494282,
+    "ast_hash": "f77980a07809c3d1575ecd49c68706e3",
     "semantic_hash": ""
   },
   "src/bot.js": {
-    "mtime": 1779072226.7157176,
-    "ast_hash": "f908e7d28c170d5d401647fb7869450b",
+    "mtime": 1783781232.813352,
+    "ast_hash": "005cd0bb869c83bcdbcbdb4d7f4e46f7",
     "semantic_hash": ""
   },
   "src/builder.js": {
@@ -30,28 +30,28 @@
     "semantic_hash": ""
   },
   "src/coordinator.js": {
-    "mtime": 1779072226.7157176,
-    "ast_hash": "43ae27c41d24c997bde3c080c40b9ae2",
+    "mtime": 1783743715.4574287,
+    "ast_hash": "41e2e5cd44ead93132a2bd10f9f1a5f0",
     "semantic_hash": ""
   },
   "src/crew.js": {
-    "mtime": 1779072226.7157176,
-    "ast_hash": "726b3fa602ea70abfa23d4056474e934",
+    "mtime": 1783741066.5774298,
+    "ast_hash": "203e2a20d712d6a57d0a7d60c4f266e8",
     "semantic_hash": ""
   },
   "src/demo.js": {
-    "mtime": 1779072226.7157176,
-    "ast_hash": "b3fb2aac8386ac0e28e23b5b9bb80193",
+    "mtime": 1783734909.1334305,
+    "ast_hash": "cbd64adaba3baece2f6f43e7fcb86f20",
     "semantic_hash": ""
   },
   "src/index.js": {
-    "mtime": 1779072226.7157176,
-    "ast_hash": "c437b49baa82ef973a2ff11771df9aa9",
+    "mtime": 1783734925.8454306,
+    "ast_hash": "b965125973aee5382eaf8682f3cbd0a7",
     "semantic_hash": ""
   },
   "src/multi-demo.js": {
-    "mtime": 1779072226.7157176,
-    "ast_hash": "cc8fd37da32a239e1ebe4df3b93fb088",
+    "mtime": 1783743242.449428,
+    "ast_hash": "d93e17fad902e246647bcf471730417d",
     "semantic_hash": ""
   },
   "src/offline-demo.js": {
@@ -120,13 +120,93 @@
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1781056569.81227,
-    "ast_hash": "2db2aaf887621a987af346434c0972f0",
+    "mtime": 1783781279.4413521,
+    "ast_hash": "f4d91484842a052387aa35db61fbc2da",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1779072226.7157176,
-    "ast_hash": "9f04632ace3b3510212c18ef2dfcec74",
+    "mtime": 1783782982.0293543,
+    "ast_hash": "99323e3652f473f63ecbb6b307424e91",
+    "semantic_hash": ""
+  },
+  "src/viewer.js": {
+    "mtime": 1783736736.009432,
+    "ast_hash": "535ed49b8342f69e3e703f16a8a473a9",
+    "semantic_hash": ""
+  },
+  "TODO.md": {
+    "mtime": 1783783038.1693552,
+    "ast_hash": "57a0e0e71ffa716dd031a2bdab0849e3",
+    "semantic_hash": ""
+  },
+  "docs/SETUP.md": {
+    "mtime": 1783781267.249352,
+    "ast_hash": "4b95bb3c31f84e5165d27f073d57071a",
+    "semantic_hash": ""
+  },
+  ".claude/settings.local.json": {
+    "mtime": 1783744507.729428,
+    "ast_hash": "3e10ae26e896b2de1e4538ab6fc7e331",
+    "semantic_hash": ""
+  },
+  "scripts/setup.js": {
+    "mtime": 1783781254.001352,
+    "ast_hash": "5a1086897b6a270e9f5d4c2dec36bfd7",
+    "semantic_hash": ""
+  },
+  "src/e2e-test.js": {
+    "mtime": 1783734976.9054298,
+    "ast_hash": "8ed5c7a46001881c874b0cfe04252c88",
+    "semantic_hash": ""
+  },
+  "src/preflight.js": {
+    "mtime": 1783781254.005352,
+    "ast_hash": "af40a3d709830418ef435ed86f489d7c",
+    "semantic_hash": ""
+  },
+  "docker-compose.yml": {
+    "mtime": 1783781254.009352,
+    "ast_hash": "d32ece76596d7401d2f036f9df4ac93b",
+    "semantic_hash": ""
+  },
+  "docker/ops.json": {
+    "mtime": 1783782210.105352,
+    "ast_hash": "eb8c368d74dda529a83972b944570afd",
+    "semantic_hash": ""
+  },
+  "scripts/gen-ops.js": {
+    "mtime": 1783738042.7774262,
+    "ast_hash": "67b95b850885f76dd25fbe46c7ff3bf5",
+    "semantic_hash": ""
+  },
+  "src/crew-replay.js": {
+    "mtime": 1783743806.3134289,
+    "ast_hash": "82ed065eab2e722fc2abf08dd5d27673",
+    "semantic_hash": ""
+  },
+  "scripts/play.js": {
+    "mtime": 1783779042.6093564,
+    "ast_hash": "dc886a1471053d4369afaa29b0611a60",
+    "semantic_hash": ""
+  },
+  "scripts/server.js": {
+    "mtime": 1783781217.989352,
+    "ast_hash": "6a73ab095fc46e38b6763187a7b887be",
+    "semantic_hash": ""
+  },
+  "src/library/index.js": {
+    "mtime": 1783781254.0133522,
+    "ast_hash": "0855a276fbf07bc28aa5d8040d467337",
+    "semantic_hash": ""
+  },
+  "src/providers.js": {
+    "mtime": 1783778895.9573479,
+    "ast_hash": "c1b9e1c5d049865c6f3fecea9b9b7806",
+    "semantic_hash": ""
+  },
+  "docs/media/crew-castle-timelapse-640x360-11JUL2026.webp": {
+    "mtime": 1783782930.521351,
+    "ast_hash": "7b547e750e6c0c50962a911915f466fe",
     "semantic_hash": ""
   }
 }

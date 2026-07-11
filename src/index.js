@@ -2,10 +2,16 @@ import 'dotenv/config';
 import { createBot, waitForSpawn } from './bot.js';
 import { Builder } from './builder.js';
 import { BuilderAgent } from './agent.js';
+import { startViewer } from './viewer.js';
+import { requireApiKey, requireMinecraftServer } from './preflight.js';
 import readline from 'readline';
 
 async function main() {
   console.log('=== Minecraft Agentic Builder ===\n');
+
+  // Fail fast with friendly guidance if the key or server is missing
+  requireApiKey();
+  await requireMinecraftServer();
 
   // Create the bot
   const bot = createBot({
@@ -19,6 +25,9 @@ async function main() {
   console.log('Connecting to server...');
   await waitForSpawn(bot);
   await builder.init();
+
+  // Open the browser viewer so you can watch without the Minecraft game
+  await startViewer(bot);
 
   console.log('Bot ready! Enter build prompts:\n');
 

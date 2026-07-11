@@ -1,0 +1,56 @@
+[
+  {
+    "uuid": "b8321dc8-605c-3330-b750-c6f29be0648e",
+    "name": "Archie",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "2395a506-85c9-3956-83af-cf7ea09a44fe",
+    "name": "Bloom",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "aca92e88-7ccc-3881-a428-de1cb0f4eb55",
+    "name": "BuilderBot",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "010637d8-c3b5-3ba7-ab90-47564fe1126b",
+    "name": "Woody",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "3889ce1c-ae37-399e-af70-b33e92458733",
+    "name": "Fancy",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "b91a2b1d-49b7-394e-ad2b-5b1796b7af5e",
+    "name": "DemoBuilder",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "8665c968-7c5d-361d-b64c-c7604927fb7a",
+    "name": "AgentBuilder",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "66b219e9-63db-3ecb-8945-35c38a2b4f44",
+    "name": "E2ETester",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "92d5c629-518b-3da6-a518-f124a632f219",
+    "name": "Rocky",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  }
+]

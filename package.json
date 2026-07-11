@@ -1,21 +1,36 @@
 {
   "name": "minecraft-agentic",
   "version": "0.1.0",
-  "description": "AI agents that build Minecraft worlds while you watch",
+  "description": "AI agents that build Minecraft worlds while you watch - live in your browser, no Minecraft account needed",
+  "license": "MIT",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
     "demo": "node src/demo.js",
     "crew": "node src/multi-demo.js",
-    "offline": "node src/offline-demo.js"
+    "offline": "node src/offline-demo.js",
+    "play": "node scripts/play.js",
+    "server": "node scripts/server.js up",
+    "server:stop": "node scripts/server.js stop",
+    "server:logs": "docker logs -f minecraft-agentic",
+    "server:reset": "node scripts/server.js reset",
+    "e2e": "node src/e2e-test.js",
+    "replay": "node src/crew-replay.js",
+    "setup": "node scripts/setup.js",
+    "ops": "node scripts/gen-ops.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
+    "@google/generative-ai": "^0.24.1",
+    "dotenv": "^16.4.5",
     "mineflayer": "^4.23.0",
     "mineflayer-pathfinder": "^2.4.5",
-    "prismarine-viewer": "^1.28.0",
-    "@anthropic-ai/sdk": "^0.52.0",
-    "dotenv": "^16.4.5"
+    "openai": "^6.46.0",
+    "prismarine-viewer": "^1.28.0"
+  },
+  "optionalDependencies": {
+    "canvas": "^3.2.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

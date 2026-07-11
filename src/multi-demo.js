@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { Crew } from './crew.js';
+import { requireApiKey, requireMinecraftServer } from './preflight.js';
 
 const DEMO_BUILDS = [
   'a medieval blacksmith shop with forge and anvil',
@@ -20,6 +21,10 @@ async function multiAgentDemo() {
   console.log(`Build: "${prompt}"`);
   console.log(`Mode: ${sequential ? 'Sequential' : 'Parallel (staggered)'}\n`);
 
+  // Fail fast with friendly guidance if the key or server is missing
+  requireApiKey();
+  await requireMinecraftServer();
+
   const crew = new Crew(process.env.ANTHROPIC_API_KEY, {
     host: process.env.MC_HOST || 'localhost',
     port: parseInt(process.env.MC_PORT || '25565')
@@ -33,11 +38,13 @@ async function multiAgentDemo() {
     console.log('\n>>> Starting build in 5 seconds - position your camera! <<<\n');
     await sleep(5000);
 
+    // Build at the surface near where the bots spawned (positive Y so the browser
+    // viewer frames it), instead of a fixed spot that could land underground.
+    const p = crew.activeWorkers[0].bot.entity.position;
+    const origin = { x: Math.floor(p.x) + 4, y: Math.floor(p.y), z: Math.floor(p.z) + 4 };
+
     // Execute the build
-    await crew.executeBuild(prompt, {
-      origin: { x: 0, y: 64, z: 0 }, // Adjust based on your world
-      sequential
-    });
+    await crew.executeBuild(prompt, { origin, sequential });
 
     console.log('\n>>> Demo complete! <<<');
     console.log('>>> Bots will disconnect in 10 seconds <<<\n');
