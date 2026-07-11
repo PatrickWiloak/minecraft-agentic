@@ -10,8 +10,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1783780049.237354,
-    "ast_hash": "695a124a5b5823be0f956e7e7cd8226f",
+    "mtime": 1783786565.6373475,
+    "ast_hash": "2239c699b249848bd4258d8c70f30df3",
     "semantic_hash": ""
   },
   "src/agent.js": {
@@ -120,33 +120,33 @@
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1783781279.4413521,
-    "ast_hash": "f4d91484842a052387aa35db61fbc2da",
+    "mtime": 1783790969.073351,
+    "ast_hash": "d297c7c21a8bfa6dba4fa8fe0f4a55f3",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1783785952.6773534,
-    "ast_hash": "31740d30cf37dad60b7a17a6279c7aa7",
+    "mtime": 1783791603.0733554,
+    "ast_hash": "7969b45692bf0ae8ab6d0902cfe5d322",
     "semantic_hash": ""
   },
   "src/viewer.js": {
-    "mtime": 1783736736.009432,
-    "ast_hash": "535ed49b8342f69e3e703f16a8a473a9",
+    "mtime": 1783790592.4093535,
+    "ast_hash": "14173f842ab450e87c724e3f89453336",
     "semantic_hash": ""
   },
   "TODO.md": {
-    "mtime": 1783785979.541354,
-    "ast_hash": "1fc02ca8ad8ae3ab41696eeedb20489e",
+    "mtime": 1783791606.5893555,
+    "ast_hash": "c6a004527516a6bc609ace9c254c4135",
     "semantic_hash": ""
   },
   "docs/SETUP.md": {
-    "mtime": 1783785541.4453542,
-    "ast_hash": "109578f5eabb286799c393f6072e78f9",
+    "mtime": 1783787393.2293499,
+    "ast_hash": "c15399388e69f373db3ca4577a6b6957",
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
-    "mtime": 1783744507.729428,
-    "ast_hash": "3e10ae26e896b2de1e4538ab6fc7e331",
+    "mtime": 1783788871.5773532,
+    "ast_hash": "a04de2d1f2366293f6f26dfd60f484c4",
     "semantic_hash": ""
   },
   "scripts/setup.js": {
@@ -170,7 +170,7 @@
     "semantic_hash": ""
   },
   "docker/ops.json": {
-    "mtime": 1783785521.2133546,
+    "mtime": 1783790621.7053535,
     "ast_hash": "eb8c368d74dda529a83972b944570afd",
     "semantic_hash": ""
   },
@@ -205,8 +205,18 @@
     "semantic_hash": ""
   },
   "docs/media/crew-castle-timelapse-640x360-11JUL2026.webp": {
-    "mtime": 1783785913.489353,
-    "ast_hash": "79fe48165cb2812714cf295e2613e7a9",
+    "mtime": 1783791061.557351,
+    "ast_hash": "e4222e957e7cb7c8a9f97010eea45a8e",
+    "semantic_hash": ""
+  },
+  "scripts/web.js": {
+    "mtime": 1783791574.82135,
+    "ast_hash": "020d44cd549e5470898ba56197e17720",
+    "semantic_hash": ""
+  },
+  "docs/media/web-control-panel-1360x800-11JUL2026.png": {
+    "mtime": 1783787307.0573525,
+    "ast_hash": "7b01b688a72ffc1c8b03aa89d0a8fce0",
     "semantic_hash": ""
   }
 }

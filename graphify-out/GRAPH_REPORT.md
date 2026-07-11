@@ -1,16 +1,16 @@
 # Graph Report - minecraft-agentic  (2026-07-11)
 
 ## Corpus Check
-- 40 files · ~159,581 words
+- 41 files · ~174,448 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 341 nodes · 523 edges · 28 communities (20 shown, 8 thin omitted)
+- 360 nodes · 565 edges · 31 communities (23 shown, 8 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1ece22da`
+- Built from commit: `cf2a8f27`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -19,6 +19,7 @@
 - [[_COMMUNITY_Community 1|Community 1]]
 - [[_COMMUNITY_Community 2|Community 2]]
 - [[_COMMUNITY_Community 3|Community 3]]
+- [[_COMMUNITY_Community 4|Community 4]]
 - [[_COMMUNITY_Community 5|Community 5]]
 - [[_COMMUNITY_Community 6|Community 6]]
 - [[_COMMUNITY_Community 7|Community 7]]
@@ -42,43 +43,45 @@
 - [[_COMMUNITY_Community 25|Community 25]]
 - [[_COMMUNITY_Community 27|Community 27]]
 - [[_COMMUNITY_Community 28|Community 28]]
+- [[_COMMUNITY_Community 29|Community 29]]
+- [[_COMMUNITY_Community 30|Community 30]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `Builder` - 15 edges
-2. `scripts` - 14 edges
+1. `scripts` - 15 edges
+2. `Builder` - 15 edges
 3. `main()` - 14 edges
-4. `requireMinecraftServer()` - 13 edges
-5. `ensureServerUp()` - 12 edges
-6. `startViewer()` - 12 edges
-7. `Worker` - 12 edges
-8. `⛏️ Minecraft Agentic Builder` - 12 edges
-9. `requireApiKey()` - 11 edges
-10. `isLiveProvider()` - 11 edges
+4. `ensureServerUp()` - 14 edges
+5. `startViewer()` - 14 edges
+6. `requireMinecraftServer()` - 13 edges
+7. `isLiveProvider()` - 12 edges
+8. `Worker` - 12 edges
+9. `⛏️ Minecraft Agentic Builder` - 12 edges
+10. `requireApiKey()` - 11 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `buildCustom()` --calls--> `providerLabel()`  [EXTRACTED]
   scripts/play.js → src/providers.js
-- `main()` --calls--> `listBuilds()`  [EXTRACTED]
-  scripts/play.js → src/library/index.js
 - `main()` --calls--> `detectProvider()`  [EXTRACTED]
   scripts/play.js → src/providers.js
 - `main()` --calls--> `isLiveProvider()`  [EXTRACTED]
   scripts/play.js → src/providers.js
 - `main()` --calls--> `providerLabel()`  [EXTRACTED]
   scripts/play.js → src/providers.js
+- `main()` --calls--> `listBuilds()`  [EXTRACTED]
+  scripts/play.js → src/library/index.js
 
 ## Import Cycles
 - None detected.
 
-## Communities (28 total, 8 thin omitted)
+## Communities (31 total, 8 thin omitted)
 
 ### Community 0 - "Community 0"
-Cohesion: 0.09
-Nodes (21): assignments, carpenter, decorator, landscaper, mason, buildOrder, blocks, task (+13 more)
+Cohesion: 0.15
+Nodes (13): assignments, carpenter, decorator, landscaper, mason, blocks, task, blocks (+5 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.06
-Nodes (34): dependencies, @anthropic-ai/sdk, dotenv, @google/generative-ai, mineflayer, mineflayer-pathfinder, openai, prismarine-viewer (+26 more)
+Nodes (35): dependencies, @anthropic-ai/sdk, dotenv, @google/generative-ai, mineflayer, mineflayer-pathfinder, openai, prismarine-viewer (+27 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.15
@@ -86,7 +89,11 @@ Nodes (12): 🔧 All the commands, ⚙️ Configuration, 🤝 Contributing, ❓ 
 
 ### Community 3 - "Community 3"
 Cohesion: 0.09
-Nodes (32): BuilderAgent, createBot(), waitForSpawn(), Crew, main(), sleep(), demo(), DEMO_BUILDS (+24 more)
+Nodes (35): getLibraryPlan(), main(), BuilderAgent, createBot(), waitForSpawn(), Coordinator, parsePlan(), demo() (+27 more)
+
+### Community 4 - "Community 4"
+Cohesion: 0.19
+Nodes (13): broadcast(), clearAllSites(), clients, logBuffer, nextOrigin(), publicState(), pushLog(), runBuild() (+5 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.08
@@ -141,32 +148,40 @@ Cohesion: 0.29
 Nodes (5): DEFAULT_BOTS, extra, names, ops, outPath
 
 ### Community 27 - "Community 27"
-Cohesion: 0.13
-Nodes (29): getLibraryPlan(), listBuilds(), args, ask(), b(), buildCustom(), buildPreset(), c() (+21 more)
+Cohesion: 0.26
+Nodes (14): listBuilds(), args, ask(), b(), buildCustom(), buildPreset(), c(), dim() (+6 more)
 
 ### Community 28 - "Community 28"
 Cohesion: 0.28
 Nodes (16): castle(), cottage(), _disc, discPoints(), finalize(), GENERATORS, lighthouse(), makeCanvas() (+8 more)
 
+### Community 29 - "Community 29"
+Cohesion: 0.14
+Nodes (11): buildOrder, description, name, origin, x, y, z, teamChat (+3 more)
+
+### Community 30 - "Community 30"
+Cohesion: 0.38
+Nodes (10): complete(), completeClaude(), completeGemini(), completeOllama(), completeOpenAI(), DEFAULT_MODELS, detectProvider(), env() (+2 more)
+
 ## Knowledge Gaps
-- **154 isolated node(s):** `PreToolUse`, `allow`, `kiroAgent.configureMCP`, `name`, `version` (+149 more)
+- **161 isolated node(s):** `PreToolUse`, `allow`, `kiroAgent.configureMCP`, `name`, `version` (+156 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
+- **Why does `assignments` connect `Community 0` to `Community 29`?**
+  _High betweenness centrality (0.034) - this node is a cross-community bridge._
 - **Why does `Builder` connect `Community 6` to `Community 3`?**
   _High betweenness centrality (0.031) - this node is a cross-community bridge._
 - **Why does `Worker` connect `Community 8` to `Community 3`?**
-  _High betweenness centrality (0.027) - this node is a cross-community bridge._
+  _High betweenness centrality (0.028) - this node is a cross-community bridge._
 - **What connects `PreToolUse`, `allow`, `kiroAgent.configureMCP` to the rest of the system?**
-  _154 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.09090909090909091 - nodes in this community are weakly interconnected._
+  _161 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 1` be split into smaller, more focused modules?**
-  _Cohesion score 0.05714285714285714 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05555555555555555 - nodes in this community are weakly interconnected._
 - **Should `Community 3` be split into smaller, more focused modules?**
-  _Cohesion score 0.09411764705882353 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09351432880844646 - nodes in this community are weakly interconnected._
 - **Should `Community 5` be split into smaller, more focused modules?**
   _Cohesion score 0.08333333333333333 - nodes in this community are weakly interconnected._

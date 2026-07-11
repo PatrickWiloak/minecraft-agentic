@@ -11,6 +11,7 @@
     "crew": "node src/multi-demo.js",
     "offline": "node src/offline-demo.js",
     "play": "node scripts/play.js",
+    "web": "node scripts/web.js",
     "server": "node scripts/server.js up",
     "server:stop": "node scripts/server.js stop",
     "server:logs": "docker logs -f minecraft-agentic",

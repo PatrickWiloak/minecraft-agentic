@@ -12,7 +12,7 @@ You don't even need to own the game.**
 
 <img src="docs/media/crew-castle-timelapse-640x360-11JUL2026.webp" alt="Four AI bots building Stonewatch Keep, captured live from the built-in browser viewer" width="800">
 
-*Rocky, Woody, Fancy, and Bloom building Stonewatch Keep (2,937 blocks) - recorded straight
+*Rocky, Woody, Fancy, and Bloom building Stonewatch Keep (2,609 blocks) - recorded straight
 from the built-in browser viewer at `http://localhost:3000`. No Minecraft client involved.*
 
 </div>
@@ -109,6 +109,25 @@ Both work at the same time - they're views of the same world. The browser viewer
 yours, **nothing breaks** - the bots still build and you watch in-game instead
 ([fix instructions](docs/SETUP.md#browser-viewer)).
 
+## 🎛️ Web control panel
+
+The plain viewer is read-only. `npm run web` gives you a **browser control panel** instead:
+type a prompt (or pick a preset), hit Build, and watch the crew build it - viewer embedded
+right on the page, with a live, color-coded build log streaming in.
+
+```bash
+npm run web        # open http://localhost:8080
+```
+
+<img src="docs/media/web-control-panel-1360x800-11JUL2026.png" alt="The web control panel: prompt box, preset chips, live build log, and the embedded viewer" width="820">
+
+The crew connects **once** and stays online, so each prompt builds immediately (no reconnect).
+Builds land on a fresh patch of ground, so you end up with a little gallery - and a
+**Clear ground** button bulldozes the whole gallery back to grass in about a second when you
+want a clean slate. With an AI key the prompt box is live; with no key the preset chips still
+work (they're free). Change the port with `WEB_PORT`. Everything lives on that one URL - the
+3D view is served same-origin at `/viewer/`, so there's no second port to open.
+
 ## 🎬 Making content with it
 
 This project exists to produce great footage. A recipe that works:
@@ -143,6 +162,7 @@ All via `.env` (copy from `.env.example`, or let `npm run setup` do it):
 ```bash
 npm run play             # THE command: server up + menu + crew build
 npm run play "a castle"  # skip the menu, build this (AI with a key, closest preset without)
+npm run web              # browser control panel at http://localhost:8080 (prompt + watch)
 
 npm run demo "a hut"     # single bot instead of the crew
 npm start                # interactive CLI - type prompts one after another; !build/!stop from in-game chat
@@ -206,13 +226,6 @@ else (server, bots, viewer) is 100% local. No key = nothing leaves at all.
 **The bots connected but nothing is appearing?**
 Ops (above), or your server isn't 1.20.1, or command blocks are off. The bundled
 `npm run server` gets all three right - see [troubleshooting](docs/SETUP.md#troubleshooting).
-
-## 🗺️ Roadmap
-
-- [ ] Web UI for prompting (not just the read-only viewer)
-- [ ] Build queue + viewer voting on what to build next
-- [ ] More crew personalities and more library presets
-- [ ] Build competitions between two crews
 
 ## 🤝 Contributing
 

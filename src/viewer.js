@@ -33,7 +33,10 @@ function isPortFree(port) {
  * everyone building). Never throws: on any failure it logs and returns false.
  *
  * @param {import('mineflayer').Bot} bot - a spawned mineflayer bot
- * @param {{ port?: number, firstPerson?: boolean }} [options]
+ * @param {{ port?: number, firstPerson?: boolean, prefix?: string, quiet?: boolean }} [options]
+ *   `prefix` serves the viewer under a URL path (e.g. '/viewer') so another server
+ *   can reverse-proxy it on its own origin; `quiet` skips the WATCH banner for
+ *   callers that print their own URL (the web control panel).
  * @returns {Promise<boolean>} true if the viewer started
  */
 export async function startViewer(bot, options = {}) {
@@ -70,12 +73,15 @@ export async function startViewer(bot, options = {}) {
     mineflayerViewer(bot, {
       port,
       firstPerson: options.firstPerson ?? false,
+      prefix: options.prefix || '',
     });
     started = true;
-    console.log('\n========================================================');
-    console.log(`  WATCH IN YOUR BROWSER:  http://localhost:${port}`);
-    console.log('  (drag to orbit, scroll to zoom - no Minecraft needed)');
-    console.log('========================================================\n');
+    if (!options.quiet) {
+      console.log('\n========================================================');
+      console.log(`  WATCH IN YOUR BROWSER:  http://localhost:${port}`);
+      console.log('  (drag to orbit, scroll to zoom - no Minecraft needed)');
+      console.log('========================================================\n');
+    }
     return true;
   } catch (err) {
     console.warn(`[Viewer] Could not start browser viewer on port ${port}: ${err.message}`);

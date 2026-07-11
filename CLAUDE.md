@@ -26,7 +26,10 @@ content-creation / research material (time-lapse build footage).
 can watch a build in a browser without a Minecraft client - the headline feature for open-source
 appeal. It's opt-out via `VIEWER=off` / `--no-viewer` and port-configurable via `VIEWER_PORT`.
 `startViewer(bot)` is called on the single bot in `demo.js`/`index.js` and on the first worker only
-in `crew.js` (one shared view; all bots share the world). It never throws: the `prismarine-viewer`
+in `crew.js` (one shared view; all bots share the world). `scripts/web.js` starts it with
+`{ prefix: '/viewer', quiet: true }` and reverse-proxies it (HTTP + the socket.io websocket upgrade)
+so the whole web UI - prompt box, log, 3D view - is ONE url (`:8080`); the prefix works because the
+viewer client derives its socket.io path from `location.pathname`. It never throws: the `prismarine-viewer`
 import is dynamic and try/caught, so a missing/broken native `canvas` module degrades to
 "watch in-game" instead of crashing the build. `canvas` is an `optionalDependency` for exactly
 this reason - `npm install` must never hard-fail on it. Setup + fallback docs: `docs/SETUP.md`.
@@ -60,6 +63,7 @@ npm install
 npm run play           # THE one command: ensures server is up, shows the build menu
                        #   (4 library presets always free; with a key you can also type any idea)
 npm run play "a wizard tower"   # skip the menu - the AI designs it (needs a provider key in .env)
+npm run web            # browser control panel (scripts/web.js) - persistent crew + prompt/watch UI at :8080
 
 # play orchestrates these (usable directly):
 npm run server         # start local server via scripts/server.js (plain docker, NO compose plugin needed)
@@ -97,6 +101,7 @@ src/
   demo.js / multi-demo.js / offline-demo.js   demos
   plans/          cached build plans (e.g. tavern.json)
 scripts/play.js     `npm run play` - the one command (server-up + build)
+scripts/web.js      `npm run web` - persistent-crew web control panel (http + SSE, embeds the viewer)
 scripts/server.js   start/stop/reset the Docker server (plain docker, no compose)
 scripts/setup.js    `npm run setup` onboarding helper
 scripts/gen-ops.js  `npm run ops` - generates docker/ops.json (offline UUIDs)

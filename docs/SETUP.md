@@ -212,6 +212,7 @@ docker run -d -p 25565:25565 \
 npm run play                           # server up + build menu (presets free, no key)
 npm run play "a wizard tower"          # skip the menu - AI designs it (needs key)
 npm run play "a castle" --sequential   # one bot at a time; --no-viewer also works
+npm run web                            # browser control panel at http://localhost:8080 (prompt + watch)
 
 npm run server / server:stop / server:reset / server:logs   # manage the server yourself
 npm run demo "a watchtower"            # single bot instead of the crew (needs key)
