@@ -13,16 +13,60 @@
 import 'dotenv/config';
 import http from 'http';
 import net from 'net';
+import os from 'os';
 import path from 'path';
+import { exec } from 'child_process';
 import { fileURLToPath } from 'url';
 import { ensureServerUp } from './server.js';
 import { Crew } from '../src/crew.js';
 import { startViewer } from '../src/viewer.js';
 import { detectProvider, isLiveProvider, providerLabel } from '../src/providers.js';
 import { listBuilds } from '../src/library/index.js';
+import { Vec3 } from 'vec3';
 
 const WEB_PORT = parseInt(process.env.WEB_PORT || '8080', 10);
-const VIEWER_PORT = parseInt(process.env.VIEWER_PORT || '3000', 10);
+// The viewer's port is internal - the page only ever talks to WEB_PORT and we
+// reverse-proxy /viewer/ to this. It's a `let` because if the preferred port is
+// taken (a stale process, a second panel), we roll to the next free one rather
+// than silently disabling the viewer for the whole session.
+let VIEWER_PORT = parseInt(process.env.VIEWER_PORT || '3000', 10);
+
+// First free port at/after `from`, so a busy 3000 can never kill the browser view.
+async function findFreePort(from) {
+  for (let p = from; p < from + 20; p++) {
+    const free = await new Promise((resolve) => {
+      const t = net.createServer()
+        .once('error', () => resolve(false))
+        .once('listening', () => t.close(() => resolve(true)))
+        .listen(p, '127.0.0.1');
+    });
+    if (free) return p;
+  }
+  return from;
+}
+
+// Pop the control panel in the default browser once the server is up. Opt out
+// with --no-open or NO_OPEN=1 (e.g. on headless boxes). Tries each opener in
+// order and gives up silently - the printed URL always works as a fallback.
+function openBrowser(url) {
+  if (process.env.NO_OPEN === '1' || process.argv.includes('--no-open')) return;
+  const isWSL = process.platform === 'linux' && /microsoft/i.test(os.release());
+  const openers =
+    process.platform === 'darwin' ? ['open'] :
+    process.platform === 'win32' ? ['start ""'] :
+    isWSL ? ['wslview', 'explorer.exe', 'xdg-open'] :   // WSL: hand off to the Windows default browser
+    ['xdg-open', 'sensible-browser'];
+  const tryNext = (i) => {
+    if (i >= openers.length) return;
+    exec(`${openers[i]} "${url}"`, (err) => {
+      // explorer.exe opens the browser but still exits non-zero - don't cascade
+      // after it, or we'd open a duplicate tab. (127 = command not found: DO cascade.)
+      if (err && openers[i] === 'explorer.exe' && err.code !== 127) return;
+      if (err) tryNext(i + 1);
+    });
+  };
+  tryNext(0);
+}
 
 // --- live log fan-out (Server-Sent Events) -------------------------------------
 const clients = new Set();          // open SSE responses
@@ -51,15 +95,44 @@ for (const level of ['log', 'warn', 'error']) {
   };
 }
 
+// --- scenes ----------------------------------------------------------------------
+// A "scene" is a CONSTRUCTED pretty starting point, not a trip into the messy real
+// world. Each is built in place at the home spawn as a clean, flat, self-contained
+// platform: a solid encasing base (so no caves/ravines poke through underneath), a
+// themed surface, and tasteful backdrop decoration around the edges - leaving the
+// centre flat and clear to build on. `ground` = the surface block (also used to
+// level individual build sites); `support` = the non-gravity block that encases the
+// base; `decorate` = optional edge dressing (water, trees, peaks...).
+const SCENES = {
+  spawn:     { label: 'Plains',      ground: 'grass_block', support: 'stone',     decorate: decoPlains },
+  beach:     { label: 'Beach',       ground: 'sand',        support: 'sandstone', decorate: decoBeach },
+  desert:    { label: 'Desert',      ground: 'sand',        support: 'sandstone', decorate: decoDesert },
+  mountains: { label: 'Mountains',   ground: 'grass_block', support: 'stone',     decorate: decoMountains },
+  snowy:     { label: 'Snowy',       ground: 'snow_block',  support: 'stone',     decorate: decoSnowy },
+  jungle:    { label: 'Jungle',      ground: 'grass_block', support: 'stone',     decorate: decoJungle },
+  cherry:    { label: 'Cherry Grove', ground: 'grass_block', support: 'stone',    decorate: decoCherry },
+};
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Every scene's walkable surface sits at this fixed height. Building at a constant
+// Y (rather than wherever the crew happens to stand) keeps scenes predictable and
+// above sea level, so water never seeps in and the platform reads as a clean raised
+// clearing regardless of the natural terrain it replaces.
+const STAGE_Y = 72;
+
 // --- build state ----------------------------------------------------------------
 const state = {
   provider: detectProvider(),
   live: isLiveProvider(),
   providerLabel: providerLabel(),
   busy: false,
-  phase: 'idle',            // idle | planning | building | done | error
+  phase: 'idle',            // idle | planning | building | clearing | traveling | done | error
   last: null,               // { name, blocks, prompt }
   buildCount: 0,
+  background: 'spawn',
+  builtScenes: new Set(),   // scenes constructed this session (or detected pre-built)
+  sceneBuildCounts: {},     // per-scene build-grid position, so each plot keeps its own gallery
 };
 function setPhase(phase, extra = {}) {
   state.phase = phase;
@@ -70,14 +143,22 @@ function publicState() {
   return {
     provider: state.provider, live: state.live, providerLabel: state.providerLabel,
     busy: state.busy, phase: state.phase, last: state.last, built: state.buildCount,
+    background: state.background,
   };
 }
 
-let crew, baseOrigin;
+let crew, baseOrigin, SPAWN;
 
-// A tidy grid of build sites so successive builds don't overlap.
+// Park each bot on its own spot along the front edge of the site - all four on
+// one block renders as a single bot in the viewer. Teleports fire in parallel.
+async function formation(o) {
+  await Promise.all(crew.activeWorkers.map((w, i) => w.teleportTo(o.x - 2 + i * 8, o.y, o.z - 6)));
+}
+
+// A tidy grid of build sites so successive builds don't overlap. Kept to 3x3 so
+// every site lands on the constructed scene platform (which is sized to match).
 function nextOrigin() {
-  const col = state.buildCount % 5, row = Math.floor(state.buildCount / 5) % 5;
+  const col = state.buildCount % 3, row = Math.floor(state.buildCount / 3) % 3;
   return { x: baseOrigin.x + col * 40, y: baseOrigin.y, z: baseOrigin.z + row * 40 };
 }
 
@@ -97,10 +178,16 @@ async function runBuild({ prompt, preset }) {
   try {
     for (const w of crew.activeWorkers) w.blocksPlaced = 0;   // per-build count
     const origin = nextOrigin();
+    // Flatten a platform first so the build sits level on any terrain (mountainside,
+    // beach dunes...). Teleport the lead there first - /fill needs loaded chunks.
+    const lead = crew.activeWorkers[0];
+    await lead.teleportTo(origin.x + 16, origin.y, origin.z + 16);
+    await levelSite(lead.bot, origin);
     setPhase('building');
     const plan = await crew.executeBuild(prompt || 'a surprise build', { origin });
     const blocks = crew.activeWorkers.reduce((s, w) => s + w.blocksPlaced, 0);
     state.buildCount++;
+    state.sceneBuildCounts[state.background] = state.buildCount;   // remember this plot's gallery size
     setPhase('done', { last: { name: plan.name, blocks, prompt: label } });
     console.log(`[Web] Done: "${plan.name}" (${blocks} blocks)`);
   } catch (err) {
@@ -118,10 +205,146 @@ async function runBuild({ prompt, preset }) {
   }
 }
 
-// Bulldoze every used build site back to a clean slate: air out the footprint and
-// lay fresh grass where builds dug into the ground (moats, lawns, paths all go one
-// layer deep). Uses /fill via an opped bot - instant, no server restart, terrain
-// outside the build grid untouched.
+function groundBlock() {
+  return (SCENES[state.background] || {}).ground || 'grass_block';
+}
+
+// The scene platform spans the 3x3 build grid (sites at +0/+40/+80 from the anchor,
+// each up to +39) plus a decorative margin.
+function sceneBounds(o) {
+  return { x0: o.x - 16, x1: o.x + 128, z0: o.z - 16, z1: o.z + 128 };
+}
+
+// Each scene lives on its OWN permanent plot, laid out in a row from the world
+// spawn. Because the Minecraft world is saved to disk, a scene built once stays
+// built forever - revisiting it is just a teleport, no rebuild.
+function plotAnchor(id) {
+  const i = Math.max(0, Object.keys(SCENES).indexOf(id));
+  return { x: SPAWN.x + i * 320, y: STAGE_Y, z: SPAWN.z };
+}
+
+// Has this plot already been constructed (this session or a previous one)? Signature
+// check that natural terrain won't match: the themed ground sits at EXACTLY o.y-1
+// with air just above, over the encasing support block. Waits for the plot's chunk
+// to stream in first (a freshly-teleported bot reads null until it loads), so a
+// scene built in a PRIOR session is still recognised on restart.
+async function isSceneBuilt(bot, o, sc) {
+  const at = (y) => { try { const b = bot.blockAt(new Vec3(o.x + 20, y, o.z + 20)); return b && b.name; } catch { return null; } };
+  for (let i = 0; i < 20; i++) {          // up to ~5s for the chunk to load
+    if (at(o.y - 1) !== null) break;
+    await sleep(250);
+  }
+  return at(o.y) === 'air' && at(o.y - 1) === sc.ground && at(o.y - 3) === sc.support;
+}
+
+// /fill caps at 32768 blocks per command. Tile any region into <=32^3 boxes so a
+// single logical fill can be arbitrarily large. The small pause keeps us under the
+// server's chat/command rate limit (too fast -> "kicked for spamming"); 45ms (~22
+// cmd/s) tests clean and is ~2.5x faster than the old conservative 110ms.
+async function fillRegion(bot, x0, y0, z0, x1, y1, z1, block) {
+  for (let x = x0; x <= x1; x += 32)
+    for (let z = z0; z <= z1; z += 32)
+      for (let y = y0; y <= y1; y += 32) {
+        bot.chat(`/fill ${x} ${y} ${z} ${Math.min(x + 31, x1)} ${Math.min(y + 31, y1)} ${Math.min(z + 31, z1)} minecraft:${block}`);
+        await sleep(45);
+      }
+}
+
+// --- scene decoration -------------------------------------------------------------
+// All decoration lives in a BACKDROP band on the far edges of the platform, so the
+// 3x3 build grid in the near corner (o .. o+119) stays flat and clear.
+const rnd = (a, b) => a + Math.random() * (b - a);
+const ri = (a, b) => Math.round(rnd(a, b));
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+function put(bot, x, y, z, block) { bot.chat(`/setblock ${x} ${y} ${z} minecraft:${block}`); }
+
+// Random spots along the far +x and +z edges (the backdrop), clear of the build grid.
+function backdropSpots(o, b, n) {
+  const spots = [];
+  for (let i = 0; i < n; i++) {
+    if (Math.random() < 0.5) spots.push([ri(b.x0 + 6, b.x1 - 6), ri(o.z + 100, b.z1 - 4)]);
+    else spots.push([ri(o.x + 100, b.x1 - 4), ri(b.z0 + 6, b.z1 - 6)]);
+  }
+  return spots;
+}
+
+async function placeTree(bot, x, y, z, log, leaf, h = 5) {
+  for (let i = 0; i < h; i++) put(bot, x, y + i, z, log);
+  for (let dy = h - 2; dy <= h + 1; dy++)
+    for (let dx = -2; dx <= 2; dx++)
+      for (let dz = -2; dz <= 2; dz++) {
+        if (Math.abs(dx) + Math.abs(dz) + Math.max(0, dy - h) > 3) continue;   // rounded canopy
+        if (dx === 0 && dz === 0 && dy < h) continue;                          // don't bury the trunk
+        put(bot, x + dx, y + dy, z + dz, leaf);
+      }
+  await sleep(40);
+}
+
+async function scatterTrees(bot, o, b, log, leaf, n = 9) {
+  for (const [x, z] of backdropSpots(o, b, n)) await placeTree(bot, x, o.y, z, log, leaf, ri(4, 6));
+}
+
+async function decoPlains(bot, o, b) {
+  await scatterTrees(bot, o, b, 'oak_log', 'oak_leaves', 8);
+  for (const [x, z] of backdropSpots(o, b, 18)) put(bot, x, o.y, z, pick(['poppy', 'dandelion', 'cornflower', 'oxeye_daisy']));
+}
+async function decoJungle(bot, o, b) {
+  await scatterTrees(bot, o, b, 'jungle_log', 'jungle_leaves', 11);
+}
+async function decoCherry(bot, o, b) {
+  await scatterTrees(bot, o, b, 'cherry_log', 'cherry_leaves', 11);
+  for (const [x, z] of backdropSpots(o, b, 24)) put(bot, x, o.y, z, 'pink_petals');
+}
+async function decoDesert(bot, o, b) {
+  for (const [x, z] of backdropSpots(o, b, 12)) {
+    const h = ri(2, 4);
+    for (let k = 0; k < h; k++) put(bot, x, o.y + k, z, 'cactus');   // flat sand + spacing = cactus survives
+  }
+  for (const [x, z] of backdropSpots(o, b, 10)) put(bot, x, o.y, z, 'dead_bush');
+  await sleep(40);
+}
+async function decoSnowy(bot, o, b) {
+  // a calm frozen pond on the far +z edge, flush with the surface
+  await fillRegion(bot, b.x0, o.y - 1, o.z + 96, b.x1, o.y - 1, b.z1, 'packed_ice');
+  await scatterTrees(bot, o, { ...b, z1: o.z + 92 }, 'spruce_log', 'spruce_leaves', 7);
+}
+async function decoMountains(bot, o, b) {
+  // stone peaks with snow caps along the far edges - a backdrop skyline
+  for (let i = 0; i < 5; i++) {
+    const [x, z] = backdropSpots(o, b, 1)[0];
+    const R = ri(5, 8), H = ri(9, 15);
+    for (let y = 0; y < H; y++) {
+      const r = Math.max(1, Math.round(R * (1 - y / H)));
+      await fillRegion(bot, x - r, o.y + y, z - r, x + r, o.y + y, z + r, y > H - 3 ? 'snow_block' : 'stone');
+    }
+  }
+}
+async function decoBeach(bot, o, b) {
+  // a clean, calm, contained pool along the far +z edge - a pretty ocean stand-in
+  // with none of the real ocean's kelp/seagrass/uneven floor.
+  const z0 = o.z + 88;
+  await fillRegion(bot, b.x0, o.y - 4, z0, b.x1, o.y - 3, b.z1, 'sand');    // flat pool floor
+  await fillRegion(bot, b.x0, o.y - 2, z0, b.x1, o.y - 1, b.z1, 'water');   // 2-deep calm water, flush shoreline
+}
+
+// Level one build site into a flat platform: air out the footprint, then lay a
+// solid 4-deep base of the background's ground block (covers moats, dug-up lawns,
+// and gentle slopes - so builds sit flat on ANY terrain). The lead bot must be
+// teleported to the site first: /fill only works in loaded chunks.
+async function levelSite(bot, o) {
+  // builds extend ~8 blocks past their origin on the low side (castle moat/lawn)
+  const [x0, x1, z0, z1] = [o.x - 8, o.x + 39, o.z - 8, o.z + 39];
+  // /fill caps at 32768 blocks per command - clear the 48x48 footprint in 14-layer slabs
+  for (let y = o.y; y <= o.y + 59; y += 14) {
+    bot.chat(`/fill ${x0} ${y} ${z0} ${x1} ${Math.min(y + 13, o.y + 59)} ${z1} minecraft:air`);
+    await sleep(150);
+  }
+  bot.chat(`/fill ${x0} ${o.y - 4} ${z0} ${x1} ${o.y - 1} ${z1} minecraft:${groundBlock()}`);
+  await sleep(150);
+}
+
+// Bulldoze every used build site back to a clean slate. Uses /fill via an opped
+// bot - instant, no server restart, terrain outside the build grid untouched.
 async function clearAllSites() {
   if (state.busy) throw new Error('A build is already running.');
   state.busy = true;
@@ -129,30 +352,81 @@ async function clearAllSites() {
   // sweep that site too when the last attempt errored.
   const failedExtra = state.phase === 'error' ? 1 : 0;
   setPhase('clearing', { last: null });
-  const sites = Math.min(state.buildCount + failedExtra, 25);   // the grid wraps at 5x5 - sites get reused past 25
+  const sites = Math.min(state.buildCount + failedExtra, 9);   // the grid wraps at 3x3 - sites get reused past 9
   console.log(`\n[Web] Clearing ${sites} build site(s)...`);
-  const bot = crew.activeWorkers[0].bot;
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const lead = crew.activeWorkers[0];
   try {
     for (let i = 0; i < sites; i++) {
-      const col = i % 5, row = Math.floor(i / 5) % 5;
+      const col = i % 3, row = Math.floor(i / 3) % 3;
       const o = { x: baseOrigin.x + col * 40, y: baseOrigin.y, z: baseOrigin.z + row * 40 };
-      // builds extend ~8 blocks past their origin on the low side (castle moat/lawn)
-      const [x0, x1, z0, z1] = [o.x - 8, o.x + 39, o.z - 8, o.z + 39];
-      // /fill caps at 32768 blocks per command - clear the 48x48 footprint in 14-layer slabs
-      for (let y = o.y; y <= o.y + 59; y += 14) {
-        bot.chat(`/fill ${x0} ${y} ${z0} ${x1} ${Math.min(y + 13, o.y + 59)} ${z1} minecraft:air`);
-        await sleep(150);
-      }
-      bot.chat(`/fill ${x0} ${o.y - 1} ${z0} ${x1} ${o.y - 1} ${z1} minecraft:grass_block`);
-      await sleep(150);
+      await lead.teleportTo(o.x + 16, o.y, o.z + 16);   // load the site's chunks
+      await levelSite(lead.bot, o);
     }
     state.buildCount = 0;
+    state.sceneBuildCounts[state.background] = 0;
+    await formation(baseOrigin);
     setPhase('done', { last: { name: 'Ground cleared', blocks: 0, prompt: 'clear' } });
     console.log('[Web] Ground cleared - fresh slate.');
   } catch (err) {
     console.error(`[Web] Clear failed: ${err.message}`);
     setPhase('error', { last: { name: 'Clear failed', blocks: 0, prompt: err.message } });
+  } finally {
+    state.busy = false;
+    broadcast({ type: 'status', ...publicState() });
+  }
+}
+
+// --- scene construction -----------------------------------------------------------
+// Go to a scene. Each scene has its own PERMANENT plot, so it's only ever built
+// once - the first visit constructs it (clean flat platform, solid encased base so
+// no caves show underneath, themed surface, edge decoration); every visit after is
+// an instant teleport, because the world is saved to disk. `force` rebuilds from
+// scratch (used by "Clear ground").
+async function buildScene(id, { force = false } = {}) {
+  const sc = SCENES[id];
+  if (state.busy) throw new Error('A build is already running.');
+  state.busy = true;
+  const o = plotAnchor(id);
+  const knownBuilt = !force && state.builtScenes.has(id);
+  setPhase('switching', { last: null });   // provisional; flips to building_scene only if we actually build
+  const lead = crew.activeWorkers[0];
+  try {
+    baseOrigin = { x: o.x, y: o.y, z: o.z };
+    state.background = id;
+    const b = sceneBounds(o);
+    // Decide whether the plot needs constructing. Known-built (this session) skips
+    // straight to the teleport; otherwise park the crew above the plot, let its
+    // chunks stream in, and probe for a scene built in a previous session.
+    // The lead bot must be at the plot to build/probe (fills need loaded chunks).
+    const parkAbove = () => Promise.all(crew.activeWorkers.map((w, i) => w.teleportTo(o.x + 56 + i * 2, o.y + 40, o.z + 56)));
+    let needBuild = force || !knownBuilt;
+    if (needBuild && !force) {
+      await parkAbove();
+      await sleep(1200);
+      needBuild = !(await isSceneBuilt(lead.bot, o, sc));
+    }
+    if (needBuild) {
+      setPhase('building_scene');
+      console.log(`\n[Web] Building the ${sc.label} scene (first time)...`);
+      if (force) { await parkAbove(); await sleep(1200); }   // rebuilding - make sure chunks are loaded
+      console.log(`[Web] Clearing the ground and laying the ${sc.label} platform...`);
+      await fillRegion(lead.bot, b.x0, o.y, b.z0, b.x1, o.y + 31, b.z1, 'air');            // shear off everything above (1 tile tall - spawn is flat)
+      await fillRegion(lead.bot, b.x0, o.y - 34, b.z0, b.x1, o.y - 3, b.z1, sc.support);   // solid encasing base (hides caves), 1 tile deep
+      await fillRegion(lead.bot, b.x0, o.y - 2, b.z0, b.x1, o.y - 1, b.z1, sc.ground);     // themed flat surface
+      console.log(`[Web] Dressing the ${sc.label} scene...`);
+      if (sc.decorate) await sc.decorate(lead.bot, o, b);
+      state.sceneBuildCounts[id] = 0;   // a freshly built plot starts empty
+    } else {
+      console.log(`\n[Web] Switching to the ${sc.label} scene (already built)...`);
+    }
+    state.builtScenes.add(id);
+    state.buildCount = state.sceneBuildCounts[id] || 0;   // resume THIS plot's own gallery
+    await formation(o);
+    setPhase('done', { last: { name: `${sc.label} scene ready`, blocks: 0, prompt: 'scene' } });
+    console.log(`[Web] ${sc.label} scene ready - build grid anchored at (${o.x}, ${o.y}, ${o.z}).`);
+  } catch (err) {
+    console.error(`[Web] Scene failed: ${err.message}`);
+    setPhase('error', { last: { name: 'Scene failed', blocks: 0, prompt: err.message } });
   } finally {
     state.busy = false;
     broadcast({ type: 'status', ...publicState() });
@@ -203,7 +477,10 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && url.pathname === '/status') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ ...publicState(), builds: listBuilds() }));
+    return res.end(JSON.stringify({
+      ...publicState(), builds: listBuilds(),
+      backgrounds: Object.entries(SCENES).map(([id, b]) => ({ id, label: b.label })),
+    }));
   }
 
   if (req.method === 'GET' && url.pathname === '/events') {
@@ -229,6 +506,18 @@ const server = http.createServer(async (req, res) => {
     if (state.busy) { res.writeHead(409, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'busy' })); }
     if (!prompt && !preset) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'empty' })); }
     runBuild({ prompt, preset }).catch((e) => console.error('[Web]', e.message));   // fire-and-forget
+    res.writeHead(202, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ ok: true }));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/background') {
+    const body = await readBody(req);
+    let payload = {};
+    try { payload = JSON.parse(body || '{}'); } catch { /* ignore */ }
+    const id = (payload.background || '').toString();
+    if (!SCENES[id]) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'unknown scene' })); }
+    if (state.busy) { res.writeHead(409, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'busy' })); }
+    buildScene(id).catch((e) => console.error('[Web]', e.message));   // fire-and-forget
     res.writeHead(202, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ ok: true }));
   }
@@ -267,20 +556,28 @@ async function main() {
   crew = new Crew(null, { host: process.env.MC_HOST || 'localhost', port: parseInt(process.env.MC_PORT || '25565', 10) });
   await crew.assembleTeam(['mason', 'carpenter', 'decorator', 'landscaper']);
 
-  // Anchor the build grid at the surface near the crew's spawn (positive Y so the
-  // browser viewer frames it), then start the viewer so the page shows the world
-  // immediately - even before the first build.
-  const p = crew.activeWorkers[0].bot.entity.position;
-  baseOrigin = { x: Math.floor(p.x) + 6, y: Math.floor(p.y), z: Math.floor(p.z) + 6 };
-  for (const w of crew.activeWorkers) await w.teleportTo(baseOrigin.x - 5, baseOrigin.y, baseOrigin.z - 5);
-  await startViewer(crew.activeWorkers[0].bot, { prefix: '/viewer', quiet: true });
+  // Anchor scenes at the stable WORLD spawn (not the crew's saved position, which
+  // drifts as they build) at a fixed height, then start the viewer.
+  const bot = crew.activeWorkers[0].bot;
+  const sp = bot.spawnPoint || bot.entity.position;
+  baseOrigin = { x: Math.floor(sp.x) + 6, y: STAGE_Y, z: Math.floor(sp.z) + 6 };
+  SPAWN = { ...baseOrigin };   // every scene is constructed here
+  await formation(baseOrigin);
+  VIEWER_PORT = await findFreePort(VIEWER_PORT);   // never let a stale port disable the view
+  await startViewer(bot, { prefix: '/viewer', quiet: true, port: VIEWER_PORT });
 
   server.listen(WEB_PORT, () => {
     console.log('\n========================================================');
     console.log(`  OPEN IN YOUR BROWSER:  http://localhost:${WEB_PORT}`);
     console.log(`  (prompt box + presets + live 3D view, all on one page)`);
     console.log('========================================================\n');
+    openBrowser(`http://localhost:${WEB_PORT}`);
   });
+
+  // Construct a clean Plains scene right away so the very first thing the user sees
+  // is a tidy flat starting point, not raw spawn terrain. Fire-and-forget so the
+  // page is available immediately and they watch it build in.
+  buildScene('spawn').catch((e) => console.error('[Web]', e.message));
 }
 
 // Disconnect the bots on exit so a quick restart doesn't collide with our own
@@ -338,6 +635,7 @@ const PAGE = `<!doctype html>
   button:disabled { opacity:.4; cursor:not-allowed; }
   button.ghost { background:var(--panel2); border:1px solid var(--edge2); color:var(--ink); font-weight:600; padding:8px 13px; font-size:13px; }
   button.ghost:hover:not(:disabled){ border-color:var(--accent2); color:var(--accent2); background:#182130; filter:none; }
+  button.ghost.active { border-color:var(--accent); color:var(--accent); }
   button.ghost.danger { padding:5px 11px; font-size:12px; flex:none; background:transparent; }
   button.ghost.danger:hover:not(:disabled){ border-color:var(--danger); color:var(--danger); background:#1f1315; }
   .chips { display:flex; flex-wrap:wrap; gap:8px; }
@@ -377,6 +675,10 @@ const PAGE = `<!doctype html>
       <label class="small">Or pick a preset (always free)</label>
       <div id="chips" class="chips"></div>
     </div>
+    <div class="field">
+      <label class="small">Scene - a pretty flat starting point</label>
+      <div id="bgs" class="chips"></div>
+    </div>
     <div class="status"><span id="dot" class="dot"></span><span id="statusText">Connecting...</span>
       <button id="clear" class="ghost danger" style="margin-left:auto" title="Bulldoze every build and re-grass the ground" disabled>Clear ground</button>
     </div>
@@ -394,7 +696,12 @@ const PAGE = `<!doctype html>
   const $ = (id) => document.getElementById(id);
   $('view').addEventListener('load', () => $('cover').style.display = 'none');
 
-  let live = false, busy = false;
+  let live = false, busy = false, lastBg;
+  // The viewer's camera locks onto the bot's position when it CONNECTS, so after
+  // the crew travels somewhere new we reload the iframe to re-frame the new scene -
+  // no manual page refresh. Query string busts cache; the socket.io path comes from
+  // location.pathname (still /viewer/) so the connection is unaffected.
+  function reframeViewer(){ $('cover').style.display = 'flex'; $('view').src = '/viewer/?t=' + Date.now(); }
 
   function classify(line){
     if (/^\\[Crew\\]/.test(line)) return 'crew';
@@ -411,6 +718,8 @@ const PAGE = `<!doctype html>
   }
   function setStatus(s){
     live = s.live; busy = s.busy;
+    if (lastBg === undefined) lastBg = s.background;
+    else if (s.background !== lastBg) { lastBg = s.background; reframeViewer(); }
     $('badge').textContent = s.live ? s.providerLabel : 'no key - library mode';
     $('badge').className = 'badge' + (s.live ? ' live' : '');
     $('prompt').disabled = !s.live;
@@ -422,10 +731,17 @@ const PAGE = `<!doctype html>
     $('go').disabled = s.busy || !s.live;
     $('clear').disabled = s.busy || (!s.built && s.phase!=='error');
     document.querySelectorAll('#chips button').forEach(b => b.disabled = s.busy);
+    document.querySelectorAll('#bgs button').forEach(b => {
+      b.disabled = s.busy;
+      b.classList.toggle('active', b.dataset.id === s.background);
+    });
     if (s.phase==='planning') t.textContent = 'Designing your build...';
     else if (s.phase==='building') t.textContent = 'Building' + (s.last?' ':'') + '...';
     else if (s.phase==='clearing') t.textContent = 'Clearing the ground...';
+    else if (s.phase==='building_scene') t.textContent = 'Building the scene (one time)...';
+    else if (s.phase==='switching') t.textContent = 'Switching scene...';
     else if (s.phase==='done' && s.last && s.last.prompt==='clear') t.textContent = 'Ground cleared - fresh slate ready';
+    else if (s.phase==='done' && s.last && s.last.prompt==='scene') t.textContent = s.last.name + ' - ready to build';
     else if (s.phase==='done' && s.last) t.textContent = 'Done: ' + s.last.name + ' (' + s.last.blocks + ' blocks)';
     else if (s.phase==='error' && s.last) t.textContent = 'Error: ' + s.last.prompt;
     else t.textContent = busy ? 'Working...' : 'Idle - ready to build';
@@ -456,6 +772,17 @@ const PAGE = `<!doctype html>
     const rnd = document.createElement('button');
     rnd.className='ghost'; rnd.textContent='Surprise me'; rnd.onclick=()=>build({preset:'random'});
     chips.appendChild(rnd);
+    const bgs = $('bgs');
+    (s.backgrounds||[]).forEach(b => {
+      const btn = document.createElement('button');
+      btn.className='ghost'; btn.textContent = b.label; btn.dataset.id = b.id;
+      btn.onclick = () => {
+        if (busy) return;
+        fetch('/background', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ background: b.id }) });
+      };
+      bgs.appendChild(btn);
+    });
+    setStatus(s);
   });
 
   const es = new EventSource('/events');

@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "src/crew.js": {
-    "mtime": 1783741066.5774298,
-    "ast_hash": "203e2a20d712d6a57d0a7d60c4f266e8",
+    "mtime": 1783792793.6173518,
+    "ast_hash": "0212a79f5919fcf2b28ebd0fd2250a3f",
     "semantic_hash": ""
   },
   "src/demo.js": {
@@ -65,8 +65,8 @@
     "semantic_hash": ""
   },
   "src/worker.js": {
-    "mtime": 1779072226.7197177,
-    "ast_hash": "e69ccb258d84a2529cdf46ed450caad6",
+    "mtime": 1783792776.825351,
+    "ast_hash": "6e3a5f73212591a3df0c119816c7ba92",
     "semantic_hash": ""
   },
   ".claude/CLAUDE.md": {
@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1783791603.0733554,
-    "ast_hash": "7969b45692bf0ae8ab6d0902cfe5d322",
+    "mtime": 1783831921.1453538,
+    "ast_hash": "6b4a2b325086ad2b51da4ede54cfbd9b",
     "semantic_hash": ""
   },
   "src/viewer.js": {
@@ -135,8 +135,8 @@
     "semantic_hash": ""
   },
   "TODO.md": {
-    "mtime": 1783791606.5893555,
-    "ast_hash": "c6a004527516a6bc609ace9c254c4135",
+    "mtime": 1783832064.6573544,
+    "ast_hash": "cc8f54db30a1bcf53a5fb1a4a824d6dd",
     "semantic_hash": ""
   },
   "docs/SETUP.md": {
@@ -145,8 +145,8 @@
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
-    "mtime": 1783788871.5773532,
-    "ast_hash": "a04de2d1f2366293f6f26dfd60f484c4",
+    "mtime": 1783830095.2773514,
+    "ast_hash": "948f496ad66036666d824a7dd3c23459",
     "semantic_hash": ""
   },
   "scripts/setup.js": {
@@ -210,13 +210,18 @@
     "semantic_hash": ""
   },
   "scripts/web.js": {
-    "mtime": 1783791574.82135,
-    "ast_hash": "020d44cd549e5470898ba56197e17720",
+    "mtime": 1783831887.3253536,
+    "ast_hash": "093263ec3a36c64cd5cc1a09c2591ff1",
     "semantic_hash": ""
   },
   "docs/media/web-control-panel-1360x800-11JUL2026.png": {
     "mtime": 1783787307.0573525,
     "ast_hash": "7b01b688a72ffc1c8b03aa89d0a8fce0",
+    "semantic_hash": ""
+  },
+  "nobler-works-banner.JPG": {
+    "mtime": 1783831896.5413537,
+    "ast_hash": "86081c5161ae73620ba3a0aa78b69fd6",
     "semantic_hash": ""
   }
 }

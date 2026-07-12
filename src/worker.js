@@ -90,6 +90,10 @@ export class Worker {
     this.builder = new Builder(this.bot);
     await this.builder.init();
 
+    // Creative mode (bots are opped): no fall/suffocation damage while they hop
+    // around the site following their work.
+    this.bot.chat('/gamemode creative');
+
     console.log(`[${this.name}] ${this.role} ready for work!`);
     this.say(`${this.role} reporting for duty!`);
 
@@ -107,15 +111,34 @@ export class Worker {
   }
 
   async buildBlocks(blocks, options = {}) {
-    const { delay = 250, narrate = true } = options;
+    // groundY: pass the build site's ground level to make the worker WORK THE SITE
+    // like a real builder - hop over to stand beside each stretch of blocks it's
+    // placing (at ground level, so nobody floats) and look at the block being set.
+    const { delay = 250, narrate = true, groundY } = options;
 
     this.busy = true;
     const narrateEvery = Math.floor(blocks.length / 3) || 1;
+    let sinceMove = Infinity;   // force a hop to the first block
 
     for (let i = 0; i < blocks.length; i++) {
       if (!this.busy) break;
 
       const block = blocks[i];
+
+      if (groundY !== undefined && this.bot.entity) {
+        const p = this.bot.entity.position;
+        const far = Math.abs(p.x - block.x) + Math.abs(p.z - block.z) > 10;
+        if (sinceMove >= 8 || far) {
+          const dx = Math.random() < 0.5 ? -2 : 3;
+          const dz = Math.random() < 0.5 ? -2 : 3;
+          this.bot.chat(`/tp ${this.name} ${block.x + dx} ${groundY} ${block.z + dz}`);
+          sinceMove = 0;
+        }
+        sinceMove++;
+        const pos = this.bot.entity.position;
+        this.bot.lookAt(pos.offset(block.x + 0.5 - pos.x, block.y + 0.5 - pos.y, block.z + 0.5 - pos.z)).catch(() => {});
+      }
+
       this.bot.chat(`/setblock ${block.x} ${block.y} ${block.z} minecraft:${block.type}`);
       this.blocksPlaced++;
 

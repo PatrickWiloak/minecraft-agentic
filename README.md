@@ -1,5 +1,24 @@
 <div align="center">
 
+<a href="https://noblerworks.com/"><img src="nobler-works-banner.JPG" alt="Nobler Works" width="400"></a>
+
+### Built by [Nobler Works](https://noblerworks.com/)
+
+We build AI agents, real-time dashboards, and custom software for clients who need to move fast and see clearly.<br>
+If you want something like Minecraft Agentic Builder built for your domain, [get in touch](https://noblerworks.com/).
+
+[![Website](https://img.shields.io/badge/Website-000000?style=for-the-badge&logo=googlechrome&logoColor=white)](https://noblerworks.com/)
+[![X](https://img.shields.io/badge/X-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/Nobler_Works)
+[![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@NoblerWorks)
+[![TikTok](https://img.shields.io/badge/TikTok-000000?style=for-the-badge&logo=tiktok&logoColor=white)](https://www.tiktok.com/@noblerworks)
+[![Threads](https://img.shields.io/badge/Threads-000000?style=for-the-badge&logo=threads&logoColor=white)](https://www.threads.com/@noblerworks)
+
+</div>
+
+---
+
+<div align="center">
+
 # ⛏️ Minecraft Agentic Builder
 
 **Watch a crew of AI agents design and build castles in Minecraft - live, in your browser.
@@ -116,17 +135,25 @@ type a prompt (or pick a preset), hit Build, and watch the crew build it - viewe
 right on the page, with a live, color-coded build log streaming in.
 
 ```bash
-npm run web        # open http://localhost:8080
+npm run web        # opens http://localhost:8080 in your browser automatically
 ```
+
+It opens your default browser once the crew is ready (works on Linux, macOS, Windows, and WSL).
+Pass `--no-open` (or set `NO_OPEN=1`) to skip that, e.g. on a headless box.
 
 <img src="docs/media/web-control-panel-1360x800-11JUL2026.png" alt="The web control panel: prompt box, preset chips, live build log, and the embedded viewer" width="820">
 
 The crew connects **once** and stays online, so each prompt builds immediately (no reconnect).
 Builds land on a fresh patch of ground, so you end up with a little gallery - and a
-**Clear ground** button bulldozes the whole gallery back to grass in about a second when you
-want a clean slate. With an AI key the prompt box is live; with no key the preset chips still
-work (they're free). Change the port with `WEB_PORT`. Everything lives on that one URL - the
-3D view is served same-origin at `/viewer/`, so there's no second port to open.
+**Clear ground** button bulldozes the whole gallery back to a clean slate in about a second.
+Pick a **scene** (Plains, Beach, Desert, Mountains, Snowy, Jungle, Cherry Grove) and you get a
+clean, pretty, flat starting point - a solid themed platform (encased so no caves or ravines
+show underneath) with a tasteful backdrop (a calm beach pool, cherry trees, stone peaks...) and
+a flat centre to build on. Each scene lives on its own permanent plot, so it's **built once and
+then cached** - the first visit constructs it (~10s), every visit after is a ~3s teleport, even
+across restarts (the world is saved to disk). The embedded viewer re-frames automatically. With an AI key the prompt box is live; with no key the preset
+chips still work (they're free). Change the port with `WEB_PORT`. Everything lives on that one
+URL - the 3D view is served same-origin at `/viewer/`, so there's no second port to open.
 
 ## 🎬 Making content with it
 

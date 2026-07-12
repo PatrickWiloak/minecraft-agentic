@@ -35,10 +35,11 @@ export class Crew {
       originZ: origin.z
     });
 
-    // Teleport all workers to the build site
+    // Teleport the workers to the build site - each to their OWN spot along the
+    // front edge (all four on one block looks like a single bot in the viewer).
     console.log('\n[Crew] Moving team to build site...');
-    for (const worker of this.activeWorkers) {
-      await worker.teleportTo(origin.x - 5, origin.y, origin.z - 5);
+    for (const [i, worker] of this.activeWorkers.entries()) {
+      await worker.teleportTo(origin.x - 2 + i * 8, origin.y, origin.z - 6);
     }
     await this.sleep(1000);
 
@@ -88,7 +89,7 @@ export class Crew {
         if (worker && assignment && assignment.blocks.length > 0) {
           console.log(`[${worker.name}] Starting: ${assignment.task}`);
           worker.say(`My turn! ${assignment.task}`);
-          await worker.buildBlocks(assignment.blocks);
+          await worker.buildBlocks(assignment.blocks, { groundY: origin.y });
           worker.say("Done with my part!");
           await this.sleep(1000);
         }
@@ -110,7 +111,7 @@ export class Crew {
             await this.sleep(delay);
             console.log(`[${worker.name}] Starting: ${assignment.task}`);
             worker.say(`Starting my work: ${assignment.task}`);
-            await worker.buildBlocks(assignment.blocks, { delay: 100 });
+            await worker.buildBlocks(assignment.blocks, { delay: 100, groundY: origin.y });
             worker.say("Finished my section!");
           })();
 
