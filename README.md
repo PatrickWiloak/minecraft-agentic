@@ -155,6 +155,37 @@ npm run play "wizard tower" --sequential    # one bot at a time (cleaner time-la
 npm run play "wizard tower" --no-viewer     # skip the browser viewer (watch in-game)
 ```
 
+The crew is **data, not code** - one JSON file per role in [`src/profiles/`](src/profiles/), and
+both the bot and the AI's prompt are generated from it. Add a fifth builder by adding a fifth
+file. (Idea borrowed from [mindcraft](https://github.com/mindcraft-bots/mindcraft) - see
+[prior art](#-prior-art--inspiration).)
+
+## 🔁 The crew checks its own work
+
+When the last block lands, the build isn't finished - it's *submitted*. Two passes then ask two
+different questions, because they catch completely different failures.
+
+**"Did the world accept it?"** - the game is the judge, and it's free, so it always runs. The
+crew re-reads the world and finds every block that isn't there, then re-places it. Blocks that
+*still* won't stay aren't dropped commands, they're illegal ones - a torch on air, a door with no
+floor, gravel over water - so with an AI key set, the model is shown each failure *with the reason
+the game refused it* ("the block below is air") and patches the design. The patch is applied to
+the plan, not just the world.
+
+**"Is it any good?"** - a vision model is the judge, so it's opt-in (tick **Critique it** in the
+panel, or `CRITIC=on`). A headless browser photographs the finished build from three angles, and
+the model gets the pictures **next to its own blueprint** - the plan drawn as one ASCII floor map
+per layer. That pairing is the whole trick: given only the plan it re-reads its own homework and
+says it looks fine, and given only a photo it can describe the flaw beautifully but can't tell you
+*where* it is. Together it hands back a patch in real coordinates, and a verdict that reads like:
+
+> **6/10** - A squat stone box with a pitched roof; it reads as a barn, not a mansion.
+> - the north face has no windows at all
+> - the roofline is flat and reads as unfinished
+> - nothing lights the entrance
+
+Then it fixes what it found. This costs a model call, which is why it's a toggle and not a default.
+
 ## ✨ The details that took the longest
 
 Most of the work in this repo isn't the AI - it's making the build *look and behave like
@@ -171,8 +202,9 @@ support before the thing it supports.
 
 **Builds check their own work.** Placed-block counters lie - a bot that quietly disconnects
 mid-build keeps counting while its blocks go nowhere (that's how we got a cheerful "779
-blocks!" on a house with no roof). After every build the crew re-reads the world and reports
-exactly which blocks never landed. All nine presets verify at **0 missing**.
+blocks!" on a house with no roof). After every build the crew re-reads the world, finds exactly
+which blocks never landed, and [puts them back](#-the-crew-checks-its-own-work). All nine presets
+verify at **0 missing**.
 
 **The presets are simulated before they're trusted.** The crew builds in *parallel*, with the
 four roles staggered a few seconds apart - so "the decorator carves a window into the mason's
@@ -254,11 +286,17 @@ All via `.env` (copy from `.env.example`, or let `npm run setup` do it):
 | `VIEWER_PORT` | `3000` | Browser viewer port (auto-rolls if taken) |
 | `VIEWER` | on | Set `off` to disable the browser viewer |
 | `NO_OPEN` | - | `1` = don't auto-open a browser (headless boxes) |
+| `CRITIC` | off | `on` = photograph every build and have a vision model critique and patch it. Costs a model call per build; needs Playwright (`npx playwright install chromium`). The panel's **Critique it** checkbox does the same thing per-build. |
+| `REPAIR` | on | `off` = still re-place dropped blocks, but never ask the model to fix a design the game refuses |
+| `FEWSHOT` | on | `off` = don't show the model a matching preset as a worked example (~5k tokens/build) |
+| `PROFILES_DIR` | `src/profiles` | Point at another directory to run a different crew entirely |
+| `OLLAMA_VISION_MODEL` | - | A multimodal local model (e.g. `llava`) - without it, Ollama can't run the critic |
 
 Tuning knobs you probably don't need: `MC_VIEW_DISTANCE` (24 chunks - how far the *server*
 sends), `VIEWER_DISTANCE` (16 chunks - how far the *browser* draws; both ceilings apply, and
 the lower one wins), `MC_MEMORY`, `MC_TIMEOUT` (120s keepalive - a busy server starves its own
-keepalives long before it stops working). Changing a server setting needs
+keepalives long before it stops working), `SHOT_SETTLE_MS` (how long the critic's browser waits
+for chunks to stream in before it takes the picture). Changing a server setting needs
 `npm run server:recreate`, which rebuilds the container and keeps the world.
 
 ## 🔧 All the commands
@@ -283,7 +321,9 @@ npm run ops              # regenerate docker/ops.json (bot operator list)
 Tests - all of them run without an API key:
 
 ```bash
-npm test                 # click-to-place raycast + preset integrity (no browser, no server)
+npm test                 # everything below that needs no server, no browser, no key
+npm run test:loops       #   the repair/critic loops + crew profiles + the blueprint format
+npm run test:presets     #   simulates every preset on the crew's real parallel schedule
 npm run test:viewer      # does the BROWSER see what the crew built? (needs a server)
 npm run replay           # crew builds a library preset from a cached plan (needs a server)
 npm run e2e              # single-bot end-to-end smoke test (needs a server)
@@ -295,23 +335,33 @@ npm run record           # record the hero clip (needs a running `npm run web`, 
 
 ```
 prompt ─▶ Coordinator ─▶ Gemini / Claude / OpenAI / Ollama ─▶ build plan (JSON: blocks + chat)
-                          └▶ or the built-in library (no key)
-                                        │
-                                        ▼
-                 4 workers walk the site and place blocks, narrating in chat
+             ▲            └▶ or the built-in library (no key)
+             │                          │
+   a matching preset,                   ▼
+   as a worked example   4 workers walk the site and place blocks, narrating in chat
                                         │
                  a 5th, stationary bot ──▶ prismarine-viewer ──▶ your browser
+                                        │
+                                        ▼
+                    REPAIR: what did the world refuse, and why? ──▶ patch
+                    REVIEW: photograph it, show the model ────────▶ patch   (opt-in)
 ```
 
 ```
 src/
   coordinator.js  plans + splits work across the crew (any provider, or the library)
-  providers.js    LLM abstraction: claude/gemini/openai/ollama, auto-detect, library fallback
+  providers.js    LLM abstraction: claude/gemini/openai/ollama + vision, library fallback
+  profiles/       the crew as data - one JSON file per role (name, rules, materials)
   library/        procedural presets (castle, wizard tower, cottage, lighthouse, windmill,
                   pagoda, ship, temple, observatory)
   crew.js         multi-agent orchestration        worker.js   one bot + personality + route
+  repair.js       re-place what the world refused, and ask the model why  (Voyager)
+  critic.js       show the finished build to a vision model, patch it     (APT)
+  shot.js         headless screenshots of the live viewer, for the critic
+  digest.js       a plan as an ASCII floor map per layer - the blueprint the models read
   agent.js        single-agent planning            builder.js  block placement
   viewer.js       browser viewer w/ graceful fallback
+  viewer-hook.js  the only way to reach the viewer's camera from outside its bundle
   camera.js       the stationary bot the view renders from
   world.js        pacifyWorld() - peaceful, no griefing, no weather, no command spam
   bot.js          Mineflayer connection            preflight.js friendly env checks
@@ -320,7 +370,7 @@ scripts/
   web.js          `npm run web` - control panel, viewer proxy, scenes, placement
   play.js         `npm run play`                   server.js   Docker server (no compose)
   setup.js        `npm run setup` onboarding       gen-ops.js  offline-UUID op list
-test/             pick-ground / preset-audit / viewer-sync
+test/             pick-ground / agent-loops / preset-audit / viewer-sync
 ```
 
 More depth: [CLAUDE.md](CLAUDE.md) (invariants + hard-won gotchas), [docs/SETUP.md](docs/SETUP.md)
@@ -351,6 +401,30 @@ the server. Stop the first one before starting another.
 **The bots connected but nothing is appearing?**
 Ops (above), or your server isn't 1.20.1, or command blocks are off. The bundled
 `npm run server` gets all three right - see [troubleshooting](docs/SETUP.md#troubleshooting).
+
+## 🙏 Prior art & inspiration
+
+This project stands on a lot of other people's work. Three ideas in particular were taken
+directly from other open-source Minecraft-agent projects, and it's worth saying exactly which:
+
+| Project | What we took |
+|---------|--------------|
+| **[Voyager](https://github.com/MineDojo/Voyager)** (MineDojo) | The self-correction loop. Voyager's core insight isn't "write code", it's *write code, run it, read the environment's complaint, rewrite it*. We were already generating that complaint (a post-build scan for blocks that never landed) and throwing it away. [`src/repair.js`](src/repair.js) closes the loop: re-place what dropped, and feed what the game still refuses back to the model **with the reason it refused**. |
+| **[APT](https://github.com/spearsheep/APT-Architectural-Planning-LLM-Agent)** (Architectural Planning LLM Agent) | The multimodal review. APT pairs an LLM's spatial reasoning with visual input and a reflection step rather than trusting its first plan. [`src/critic.js`](src/critic.js) shows the model photographs of the finished build alongside its own blueprint, and [`src/digest.js`](src/digest.js) is the blueprint format that makes the critique *actionable* instead of just poetic. |
+| **[mindcraft](https://github.com/mindcraft-bots/mindcraft)** (kolbytn / mindcraft-bots) | Agents as JSON profiles, and per-request few-shot example selection. Our four roles were hardcoded in two places that had quietly drifted apart; they're now one file each in [`src/profiles/`](src/profiles/), and the coordinator picks a matching worked example from the preset library for every prompt (mindcraft does this with embeddings; we do it with word overlap over nine presets, which needs no extra dependency). |
+
+Worth your time even though we didn't borrow code from them:
+[Project Sid](https://github.com/altera-al/project-sid) (Altera) - 1000+ agents forming a
+civilization, and the current high-water mark for what this genre can be;
+[Steve](https://github.com/YuvDwi/Steve) - solves our "two roles race for one coordinate" problem
+by deterministic spatial partitioning instead of by ownership rules;
+[BuilderGPT](https://github.com/CyniaAI/BuilderGPT) - generates a `.schem` file rather than
+driving a bot, which makes builds testable and shareable without a server;
+[T2BM](https://arxiv.org/abs/2406.08751) - the text-to-building-in-Minecraft paper.
+
+And of course [mineflayer](https://github.com/PrismarineJS/mineflayer) and
+[prismarine-viewer](https://github.com/PrismarineJS/prismarine-viewer), without which none of
+this exists.
 
 ## 🤝 Contributing
 

@@ -1,72 +1,15 @@
 import { createBot, waitForSpawn } from './bot.js';
 import { Builder } from './builder.js';
+import { allProfiles, profile } from './profiles.js';
 
-const PERSONALITIES = {
-  architect: {
-    name: 'Archie',
-    role: 'Architect',
-    color: 'gold',
-    phrases: [
-      "According to my blueprints...",
-      "The structural integrity looks good!",
-      "I've designed this to perfection.",
-      "Trust the process, team!",
-      "Form follows function!"
-    ]
-  },
-  mason: {
-    name: 'Rocky',
-    role: 'Mason',
-    color: 'gray',
-    phrases: [
-      "Stone by stone, we build greatness.",
-      "These walls will stand for centuries!",
-      "Nothing beats solid craftsmanship.",
-      "I love the smell of cobblestone.",
-      "Foundation work is done!"
-    ]
-  },
-  carpenter: {
-    name: 'Woody',
-    role: 'Carpenter',
-    color: 'yellow',
-    phrases: [
-      "Wood you look at that!",
-      "Measure twice, place once!",
-      "Oak is my favorite.",
-      "These planks are premium quality.",
-      "The roof is coming together!"
-    ]
-  },
-  decorator: {
-    name: 'Fancy',
-    role: 'Decorator',
-    color: 'light_purple',
-    phrases: [
-      "This needs more pizzazz!",
-      "Interior design is my passion.",
-      "A torch here, a flower there...",
-      "It's all about the details!",
-      "Chef's kiss on this decor!"
-    ]
-  },
-  landscaper: {
-    name: 'Bloom',
-    role: 'Landscaper',
-    color: 'green',
-    phrases: [
-      "Let me add some greenery!",
-      "Nature makes everything better.",
-      "A garden really ties it together.",
-      "Flowers incoming!",
-      "The outdoors is my canvas."
-    ]
-  }
-};
+// Who the bots ARE now lives in src/profiles/*.json, one file per role (see src/profiles.js).
+// The same file feeds the coordinator's system prompt, so a role's rules and the bot that
+// plays it can't drift apart. Kept in this shape so nothing downstream had to change.
+const PERSONALITIES = Object.fromEntries(allProfiles().map((p) => [p.key, p]));
 
 export class Worker {
   constructor(personality = 'mason', options = {}) {
-    const config = PERSONALITIES[personality] || PERSONALITIES.mason;
+    const config = profile(personality) || profile('mason');
 
     this.personality = personality;
     this.name = options.name || config.name;

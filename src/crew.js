@@ -1,13 +1,11 @@
 import { Worker } from './worker.js';
 import { Coordinator } from './coordinator.js';
-import { startViewer } from './viewer.js';
+import { startViewer, viewerUrl } from './viewer.js';
 import { Camera } from './camera.js';
 import { pacifyWorld } from './world.js';
-import { Vec3 } from 'vec3';
-
-// Blocks that legitimately vanish on their own if their support isn't right (a poppy on a
-// wall footing, wheat on plain dirt). Excluded from the build-integrity check.
-const POPS_OFF = /poppy|dandelion|cornflower|orchid|allium|daisy|sapling|wheat|carrots|grass$|petals|dead_bush|torch|water|fire|campfire/;
+import { buildRoles } from './profiles.js';
+import { expectedBlocks, missingBlocks, repairBuild, executePatch } from './repair.js';
+import { reviewBuild } from './critic.js';
 
 export class Crew {
   constructor(apiKey, serverOptions = {}) {
@@ -18,7 +16,7 @@ export class Crew {
     this.camera = null;   // the viewer renders from this bot, and ONLY this bot (see camera.js)
   }
 
-  async assembleTeam(roles = ['mason', 'carpenter', 'decorator', 'landscaper']) {
+  async assembleTeam(roles = buildRoles()) {
     console.log('\n[Crew] Assembling build team...\n');
 
     for (const role of roles) {
@@ -56,6 +54,40 @@ export class Crew {
     });
   }
 
+  /**
+   * Centre the view on the FINISHED build, using the plan's own bounding box.
+   *
+   * The browser's orbit camera looks at the camera bot from 20 up and 20 south, so wherever
+   * that bot stands is the middle of the picture - and at build time it stands at the CORNER
+   * of the site (aimCamera, above), because at that point there is nothing to centre on yet.
+   * That is fine for watching a build go up. It is not fine for photographing one: the first
+   * shots the critic ever took came back as an acre of empty grass with the tower shoved into
+   * the bottom-right corner, half out of frame, and a model handed that would have critiqued
+   * the lawn.
+   *
+   * Safe here and only here: the last block has landed and the next build hasn't started, so
+   * the stationary-camera invariant (src/camera.js) still holds.
+   */
+  async frameBuild(plan) {
+    if (!this.camera?.alive || !this.activeWorkers[0]?.alive) return;
+    const blocks = Object.values(plan.assignments || {}).flatMap((a) => a.blocks || []);
+    if (!blocks.length) return;
+    const mid = (k) => {
+      const vs = blocks.map((b) => b[k]);
+      return Math.round((Math.min(...vs) + Math.max(...vs)) / 2);
+    };
+    // The bot's position is the camera's LOOK-AT TARGET, so it goes at the middle of the
+    // build in all three axes - including y. Parking it at ground level (which is where a
+    // builder would stand) aims the shot at the tower's FEET: the wizard tower is 32 blocks
+    // tall and its whole top half, spire included, fell off the top of the frame.
+    const ys = blocks.map((b) => b.y);
+    const centreY = Math.round((Math.min(...ys) + Math.max(...ys)) / 2);
+    await this.camera.park(this.activeWorkers[0].bot, { x: mid('x'), y: centreY, z: mid('z') });
+    // The viewer only learns the camera moved from a `move` event, which it re-announces once
+    // a second (src/viewer.js) - give it time to reach the page before we photograph it.
+    await this.sleep(2000);
+  }
+
   // A worker that timed out is still in the roster but its /setblock commands go nowhere.
   // Reconnect the dead ones before a build rather than silently building half a house.
   async ensureAlive() {
@@ -74,25 +106,17 @@ export class Crew {
 
   // What actually LANDED. The blocks-placed counter only counts commands we sent; this
   // re-reads the world (from the lead bot's own copy of it, so it's free) and reports the
-  // blocks that aren't there. A silently-truncated build now shows up as a number instead
-  // of a missing roof.
+  // blocks that aren't there. A silently-truncated build shows up as a number instead of a
+  // missing roof. The missing-block scan itself lives in src/repair.js, which is also what
+  // ACTS on it - counting the damage and fixing it should never be able to disagree about
+  // what "missing" means.
   verifyBuild(plan) {
     const bot = this.activeWorkers[0]?.bot;
     if (!bot) return null;
-    const expected = new Map();   // last write wins, same as the build order
-    for (const role of plan.buildOrder || Object.keys(plan.assignments))
-      for (const b of plan.assignments[role]?.blocks || []) expected.set(`${b.x},${b.y},${b.z}`, b);
-
-    let missing = 0;
+    const missing = missingBlocks(bot, plan);
     const byType = {};
-    for (const b of expected.values()) {
-      // A flower or sapling set on an unsuitable support pops off by itself - that's the
-      // build's own business, not a dropped command. Only count STRUCTURE that never landed.
-      if (POPS_OFF.test(b.type)) continue;
-      const got = bot.blockAt(new Vec3(b.x, b.y, b.z));
-      if (got && got.name === 'air') { missing++; byType[b.type] = (byType[b.type] || 0) + 1; }
-    }
-    return { expected: expected.size, missing, byType };
+    for (const b of missing) byType[b.type] = (byType[b.type] || 0) + 1;
+    return { expected: expectedBlocks(plan).size, missing: missing.length, byType, blocks: missing };
   }
 
   async executeBuild(prompt, options = {}) {
@@ -196,26 +220,77 @@ export class Crew {
       await Promise.all(buildPromises);
     }
 
-    // Celebrate
     await this.sleep(1000);
-    console.log('\n[Crew] Build complete!');
+    console.log('\n[Crew] Blocks placed - checking the work.');
+
+    const totalBlocks = this.activeWorkers.reduce((sum, w) => sum + w.blocksPlaced, 0);
+    console.log(`Total blocks placed: ${totalBlocks}`);
+
+    // Nobody celebrates before the work has been checked. Everything from here is the crew
+    // holding its own build to account, in two passes that answer two different questions.
+    await this.finishBuild(plan, options);
 
     for (const worker of this.activeWorkers) {
       worker.say("Great teamwork everyone!");
       await this.sleep(500);
     }
+    console.log('\n[Crew] Build complete!');
 
-    const totalBlocks = this.activeWorkers.reduce((sum, w) => sum + w.blocksPlaced, 0);
-    console.log(`\nTotal blocks placed: ${totalBlocks}`);
+    return plan;
+  }
 
-    const check = this.verifyBuild(plan);
-    if (check && check.missing > 0) {
-      const worst = Object.entries(check.byType).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  /**
+   * The two review passes, run after every build. Split out of executeBuild so the web panel
+   * can report each phase as it happens, and so a build that skips one still gets the other.
+   *
+   *   1. REPAIR - "did the world accept what we told it?" The game is the judge. Free, always
+   *      on. src/repair.js re-places anything that never landed, and (with a key) asks the
+   *      model to fix the design behind anything that refuses to stay. Voyager's loop.
+   *   2. REVIEW - "does it look like what was asked for?" A vision model is the judge, shown
+   *      photographs of the build next to its own blueprint. Costs a model call, so it is
+   *      opt-in (CRITIC=on). APT's loop.
+   *
+   * The order matters: a build with holes in it photographs badly, and a critic shown a
+   * half-finished structure spends its patch fixing damage the repair pass would have fixed
+   * for free. Fix what's broken, THEN ask whether it's any good.
+   */
+  async finishBuild(plan, options = {}) {
+    const { repair = true, review = process.env.CRITIC === 'on', onPhase = () => {} } = options;
+
+    plan.verified = this.verifyBuild(plan);
+    if (plan.verified?.missing) {
+      const worst = Object.entries(plan.verified.byType).sort((a, b) => b[1] - a[1]).slice(0, 5)
         .map(([t, n]) => `${t} x${n}`).join(', ');
-      console.warn(`[Crew] WARNING: ${check.missing} of ${check.expected} blocks are not in the world - the build is incomplete (${worst}).`);
+      console.warn(`[Crew] ${plan.verified.missing} of ${plan.verified.expected} blocks are not in the world (${worst}).`);
     }
-    plan.verified = check;
 
+    if (repair && plan.verified?.missing) {
+      onPhase('repairing');
+      try {
+        plan.repair = await repairBuild(this, plan);
+        plan.verified = this.verifyBuild(plan);
+      } catch (err) {
+        console.warn(`[Crew] Repair pass failed: ${err.message}`);
+      }
+    }
+    if (plan.verified && !plan.verified.missing) console.log('[Crew] Every block in the plan is in the world.');
+
+    if (!review) return plan;
+    onPhase('reviewing');
+    try {
+      // Point the camera at the thing we are about to photograph. Without this the shot is
+      // framed on the corner the build STARTED from - see frameBuild.
+      await this.frameBuild(plan);
+      const critique = await reviewBuild(plan, { url: viewerUrl() });
+      plan.review = critique;
+      if (critique && (critique.add.length || critique.remove.length)) {
+        console.log(`[Crew] Applying the review: +${critique.add.length} blocks, -${critique.remove.length}.`);
+        await executePatch(this, plan, critique);
+        plan.verified = this.verifyBuild(plan);
+      }
+    } catch (err) {
+      console.warn(`[Crew] Visual review failed: ${err.message}`);
+    }
     return plan;
   }
 

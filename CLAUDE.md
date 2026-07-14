@@ -45,7 +45,70 @@ iframe must NOT be given a `src` until boot completes - `VIEWER_PORT` isn't chos
 eager load just pins the iframe to the proxy's 502 page. Anything added to the boot path belongs in
 the `boot.steps` list, or it goes back to being invisible outside the terminal.
 
+## The two self-correction loops (added 2026-07-14)
+After the last block lands, `Crew.finishBuild()` runs two passes that answer two different
+questions. They are ordered, and the order is load-bearing: a build with holes in it photographs
+badly, so a critic shown a half-finished structure spends its whole patch fixing damage the free
+pass would have fixed. **Fix what's broken, THEN ask whether it's any good.**
+- **REPAIR (`src/repair.js`, free, always on) - "did the world accept it?"** `verifyBuild` already
+  found the blocks that never landed and did nothing but print the count. Now they are re-placed
+  (y-ascending, by their owning role). **If a round fixes zero blocks, STOP** - those blocks are not
+  dropped commands, they are physically illegal (a torch on air, a door with no floor, gravel over
+  water), and a third identical `/setblock` is refused identically. Escalate instead: with a live
+  provider, the model is shown each failure *with the reason the game refused it* (what is at the
+  coord now, what is under it) and returns a patch. Borrowed from Voyager.
+- **REVIEW (`src/critic.js`, costs a vision call, opt-in via `CRITIC=on` or the panel's checkbox) -
+  "is it any good?"** The game has no opinion about a tower with no windows. `src/shot.js` drives a
+  headless browser against the live viewer, orbits it for 3 angles, and the model gets the pictures
+  **next to `planDigest()`'s ASCII floor maps of its own plan**. Both halves are required: given only
+  the plan the model re-reads its own homework and approves it; given only a photo it can describe
+  the flaw but cannot say WHERE it is. Borrowed from APT.
+- **The critic's shot must be FRAMED on the build, or the model critiques the lawn.** The browser's
+  orbit camera looks at the camera bot from 20 up / 20 south, so that bot's position IS the centre
+  of the picture - and during a build it stands at the CORNER of the site (`aimCamera`), because at
+  that point there is nothing to centre on yet. `Crew.frameBuild()` re-parks it on the plan's
+  bounding-box centre before the shot, **in all three axes**. Both halves were found by looking at
+  the actual PNGs: parked at the origin, the tower sat in the corner of an acre of grass, half out
+  of frame; then parked at ground level, the shot aimed at the tower's FEET and the whole top half
+  (32-block build) fell off the top of the frame. This is the one moment it is safe to move the
+  camera - the last block has landed and the next build hasn't started. Pinned by `npm run test:loops`.
+- **Every patch from a model is untrusted input.** `normalizePatch()` is the only door: it converts
+  plan-relative coords to world-absolute (get that backwards and the fix lands on the neighbouring
+  plot), strips `minecraft:` prefixes, coerces unknown roles, and **drops any entry with no block
+  type** - that one goes out as `/setblock x y z minecraft:undefined`, which the server discards
+  without a word. `npm run test:loops` pins all of it.
+- A patch is applied to the **PLAN**, not just the world (`applyPatch`), so the next `verifyBuild`
+  holds the patched design to account too. The design is what improved, not just the output.
+
 ## Codebase Invariants
+- **Two things make a model call fail while looking like the model "refused to answer", and both
+  were live bugs on 2026-07-14. Check them BEFORE you debug a prompt.** (1) **A Gemini model can die
+  on its own, without taking the key with it.** Google retires and overloads free-tier models
+  per-MODEL: our pinned default `gemini-flash-latest` 503'd "high demand" for hours while the same
+  key answered instantly on other models, `gemini-2.5-flash` was closed to new keys ("no longer
+  available to new users"), and `gemini-2.0-flash` carried a free quota of 0. So `completeGemini`
+  walks `GEMINI_FALLBACKS` until something answers, and remembers the winner for the process
+  (`geminiWorking`) so the dead-model probe costs one call, not one per build. `providerLabel()`
+  reports the model that ANSWERED - the configured name is, by then, the one model known not to
+  work. **`geminiModelIsUnavailable()` is the whole retry-vs-fail decision**: a 400/403 is our bug
+  and must surface at once, not be retried on three models and reported as Google's fault. Pinned by
+  `npm run test:loops`. (2) **A reasoning model spends `maxOutputTokens` on THINKING before it writes
+  a single character**, so a budget that was ample for a one-shot model runs out mid-JSON and the
+  reply is a 200 carrying half an object. Every parser downstream then reports the same useless
+  thing: "the model did not return valid JSON" - which reads as a refusal and is actually a
+  truncation. That is exactly how the repair + critic loops failed on 4096 tokens while the
+  coordinator, on 16384, sailed through. All three JSON calls now ask for 16384 (a CEILING, not a
+  spend - a short patch still costs a short patch), and `completeGemini` raises `finishReason=
+  MAX_TOKENS` as its own error that says *truncated*, not *refused*.
+- **The crew is DATA (`src/profiles/*.json`), and the profile order IS the build timeline.** A role
+  used to be defined twice - a `PERSONALITIES` table in `worker.js` and a hand-written team paragraph
+  in the coordinator's system prompt - and the two drifted: the prompt never learned any of the rules
+  the crew had been burned by. Now one JSON file per role feeds BOTH (`src/profiles.js`: `teamBrief()`
+  builds the prompt, `buildRoles()` builds the crew), so a role's hard rules ("anything load-bearing
+  belongs to the mason", "a window is a HOLE in someone else's wall, never glass written over it")
+  reach the model that has to obey them. `order` is not cosmetic - it is the support-before-supported
+  timeline, and `test/agent-loops.test.mjs` asserts it still matches the library's `buildOrder`.
+  Idea from mindcraft; `PROFILES_DIR` swaps the whole crew.
 - **`bot.chat()` on a disconnected bot is a SILENT no-op - it does not throw.** Everything the
   bots do to the world (`/setblock`, `/fill`, `/fillbiome`, `/tp`) is a chat command, so a bot that
   dropped keeps "working" into the void: a scene builds with zero blocks placed, a marker never
@@ -179,6 +242,17 @@ the `boot.steps` list, or it goes back to being invisible outside the terminal.
   NOT reintroduce chunk churn - `WorldView.updatePosition` only loads/unloads when the bot crosses a
   CHUNK boundary, so an unchanged position is a no-op and the stationary-camera invariant holds.
   Found 2026-07-13 (the recorder timed out waiting for a camera that was never coming).
+- **A browser tab can silently miss ENTITY events, leaving builders drawn floating at stale
+  mid-hop positions - so `startViewer()` re-announces every entity too.** The socket's entity
+  stream is complete and exact at the source (a tap sees every final teleport land, matching
+  rcon to the decimal), but each browser connection has its own delivery: a stall or reconnect
+  during a build's block-update flood loses whatever was emitted in the gap, and a builder whose
+  final formation teleport got lost stays drawn mid-air/mid-fall forever while the server has it
+  parked ("why are some builders floating?"). Same class as the camera re-announce above, same
+  cure: every 2s, `bot.emit('entityMoved', e)` for every tracked entity - a strand heals within
+  2s, and when the browser is already right the event tweens a position onto itself (no visible
+  effect). Verified with an end-to-end watch (census of drawn meshes vs rcon truth after a full
+  build: exact match, where pre-fix one bot stranded). Found 2026-07-14.
 - **The view must be aimed at the SITE, not the plot.** The browser's orbit camera looks at the
   camera bot's position from 20 blocks up and 20 south of it, so wherever that bot stands IS the
   centre of the shot. It used to be parked on the corner of the plot, which framed a mostly empty
@@ -269,9 +343,10 @@ the `boot.steps` list, or it goes back to being invisible outside the terminal.
 - `npm test` (`test/pick-ground.test.mjs`) covers click-to-place, the one feature that depends on
   prismarine-viewer's internals. It needs no browser and no server: it rebuilds the viewer's camera
   in three.js and runs the real `pickGround()` lifted out of the page source in `scripts/web.js`, so
-  it can't drift from the shipped code. It also runs the real `VIEWER_HOOK` against a fake renderer
-  and checks it against the bundle in `node_modules` - the half that used to be missing (see the
-  invariant above). Two more invariants it pins (each killed the feature silently, found 2026-07-13):
+  it can't drift from the shipped code. It also runs the real hook (now `src/viewer-hook.js` - TWO
+  things inject it: the panel's proxy for click-to-place, and `src/shot.js` for the critic's
+  screenshots) against a fake renderer, asserts the panel still injects it, and checks it against
+  the bundle in `node_modules` - the half that used to be missing (see the invariant above). Two more invariants it pins (each killed the feature silently, found 2026-07-13):
   the page's click-vs-drag guard must arm on `pointerdown`, never `mousedown` - the viewer's orbit
   controls cancel their pointerdown, and a canceled pointerdown suppresses the compatibility
   `mousedown` entirely while `click` still fires, so a mousedown-armed guard reads every click as a
@@ -296,7 +371,8 @@ npm run server:recreate # rebuild the CONTAINER, keep the world - the ONLY way a
                        #   setting (VIEW_DISTANCE, MEMORY) takes effect; docker bakes -e at run
 npm run replay         # full 4-bot crew from cached plan (no API key; assumes server up)
 npm run e2e            # single-bot smoke test (no API key)
-npm test               # click-to-place raycast test + preset audit (no browser, no server)
+npm test               # click-to-place + agent loops + preset audit (no browser, no server, no key)
+npm run test:loops     # repair/critic patch handling, crew profiles, blueprint format (no server)
 npm run test:presets   # simulate every preset on the crew's real parallel schedule (no server)
 npm run test:viewer    # does the BROWSER see what the crew built? (needs a server, no key)
 npm run ops            # regenerate docker/ops.json (offline-UUID operators)
@@ -318,14 +394,27 @@ Compose plugin is required. `docker-compose.yml` is kept as an optional alternat
 src/
   bot.js          Mineflayer bot connection
   builder.js      block placement logic
-  worker.js       individual worker bot with personality
-  coordinator.js  plans + assigns work across the crew (via providers, or library if no key)
-  crew.js         multi-agent orchestration
+  worker.js       individual worker bot with personality (loaded from profiles/)
+  profiles/       THE CREW AS DATA - one JSON per role (name, phrases, materials, hard rules).
+  profiles.js       Feeds both the bots and the coordinator's prompt. Order = build timeline.
+  coordinator.js  plans + assigns work across the crew (via providers, or library if no key).
+                  Its team paragraph is GENERATED from profiles/, and it shows the model a
+                  matching library preset as a worked example (pickExample; FEWSHOT=off)
+  crew.js         multi-agent orchestration + finishBuild() (the two loops below)
+  repair.js       REPAIR loop: re-place what never landed; ask the model why the rest won't
+                  stay. Also owns normalizePatch/applyPatch - the ONLY door for model patches
+  critic.js       REVIEW loop: show the finished build to a vision model, apply its patch
+  shot.js         headless-browser screenshots of the live viewer (Playwright, optional)
+  digest.js       planDigest() - a plan as one ASCII floor map per y layer. The blueprint both
+                  loops hand to the model; also the coordinator's few-shot example format
   agent.js        single-agent build planning
-  providers.js    LLM abstraction (claude/gemini/openai/ollama) + auto-detect + library fallback
+  providers.js    LLM abstraction (claude/gemini/openai/ollama) + vision (completeVision/
+                  supportsVision) + auto-detect + library fallback
   library/        procedural builds (9 presets: castle, wizard tower, cottage, lighthouse,
                   windmill, pagoda, ship, desert temple, observatory) used when no AI key is set
-  viewer.js       browser viewer (prismarine-viewer) with graceful fallback
+  viewer.js       browser viewer (prismarine-viewer) with graceful fallback; viewerUrl()
+  viewer-hook.js  the three.js devtools handshake - the only way to reach the viewer's camera
+                  from outside its bundle. Injected by web.js (click-to-place) AND shot.js
   camera.js       the stationary bot the viewer renders from (a moving one freezes chunks)
   world.js        pacifyWorld() - peaceful, no mob griefing/fire/weather, no command-feedback spam
   preflight.js    friendly checks (API key set, server reachable) before connecting

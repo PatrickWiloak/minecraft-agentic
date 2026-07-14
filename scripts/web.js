@@ -20,7 +20,8 @@ import { fileURLToPath } from 'url';
 import { ensureServerUp } from './server.js';
 import { Crew } from '../src/crew.js';
 import { startViewer } from '../src/viewer.js';
-import { detectProvider, isLiveProvider, providerLabel } from '../src/providers.js';
+import { VIEWER_HOOK_TAG } from '../src/viewer-hook.js';
+import { detectProvider, isLiveProvider, providerLabel, supportsVision } from '../src/providers.js';
 import { listBuilds } from '../src/library/index.js';
 import { Vec3 } from 'vec3';
 
@@ -159,9 +160,13 @@ const state = {
   provider: detectProvider(),
   live: isLiveProvider(),
   providerLabel: providerLabel(),
+  canReview: isLiveProvider() && supportsVision(),
   busy: false,
-  phase: 'idle',            // idle | planning | building | clearing | traveling | done | error
-  last: null,               // { name, blocks, prompt }
+  // repairing: re-placing blocks the world refused (always runs when something is missing).
+  // reviewing: showing photographs of the build to a vision model (opt-in, costs a call).
+  phase: 'idle',            // idle | planning | building | repairing | reviewing | clearing | traveling | done | error
+  last: null,               // { name, blocks, prompt, missing, repaired }
+  review: null,             // the critic's verdict on the last build: { score, verdict, issues }
   background: 'spawn',
   builtScenes: new Set(),   // scenes constructed this session (or detected pre-built)
   // Where every build on each plot actually went. Tracked as real origins, not a count:
@@ -216,6 +221,9 @@ function publicState() {
   return {
     provider: state.provider, live: state.live, providerLabel: state.providerLabel,
     busy: state.busy, phase: state.phase, last: state.last, built: sites().length,
+    // The visual critic needs a model that can see (src/critic.js). Presets always build from
+    // the library, so the toggle is only offered on prompt builds with a vision provider.
+    canReview: state.canReview, review: state.review,
     // Whether "Clear ground" has anything to do. NOT `built > 0`: that only counts builds made
     // in THIS process, and the plot's builds outlive it (the world is on disk, sceneSites isn't),
     // so a plot full of yesterday's houses reported 0 and greyed the button out for good.
@@ -284,7 +292,7 @@ function nextOrigin() {
   throw new Error('All 9 grid sites are occupied - use "Clear ground" or "Pick a spot".');
 }
 
-async function runBuild({ prompt, preset }) {
+async function runBuild({ prompt, preset, review = false }) {
   // A request can arrive in the gap between crew assembly and the scene anchoring
   // (baseOrigin isn't set until then) - building would crash on nextOrigin and, worse,
   // could land on an unanchored origin. Refuse until boot declares itself done.
@@ -292,7 +300,7 @@ async function runBuild({ prompt, preset }) {
   if (state.busy) throw new Error('A build is already running.');
   state.busy = true;
   const label = preset ? `preset:${preset}` : prompt;
-  setPhase('planning', { last: null });
+  setPhase('planning', { last: null, review: null });
   console.log(`\n[Web] Build request: "${label}"`);
 
   // Presets always come from the free library, even if an AI key is set. Force it
@@ -324,12 +332,26 @@ async function runBuild({ prompt, preset }) {
     setPhase('building');
     // aimCamera: false - the camera is parked (just above), and must NOT move again while
     // the crew is placing blocks (see aimCamera above / src/camera.js).
-    const plan = await crew.executeBuild(prompt || 'a surprise build', { origin, aimCamera: false });
+    //
+    // `review` photographs the finished build and shows it to a vision model (src/critic.js).
+    // It is per-build rather than a process-wide setting because it costs a model call and the
+    // user is standing right there deciding whether this build is worth one.
+    const plan = await crew.executeBuild(prompt || 'a surprise build', {
+      origin,
+      aimCamera: false,
+      review: review && state.live,
+      // The repair and review passes take tens of seconds each and used to be invisible: the
+      // panel said "building", the bots stood still, and the page looked hung. Report them.
+      onPhase: (p) => setPhase(p),
+    });
     const blocks = crew.activeWorkers.reduce((s, w) => s + w.blocksPlaced, 0);
     // executeBuild re-reads the world and counts what never landed. Say so out loud rather
     // than reporting a block count that only says how many commands we fired.
     const miss = plan.verified?.missing || 0;
-    setPhase('done', { last: { name: plan.name, blocks, prompt: label } });
+    setPhase('done', {
+      last: { name: plan.name, blocks, prompt: label, missing: miss, repaired: plan.repair?.before || 0 },
+      review: plan.review && { score: plan.review.score, verdict: plan.review.verdict, issues: plan.review.issues },
+    });
     console.log(`[Web] Done: "${plan.name}" (${blocks} blocks${miss ? `, ${miss} MISSING` : ', all verified in-world'})`);
   } catch (err) {
     console.error(`[Web] Build failed: ${err.message}`);
@@ -902,43 +924,12 @@ async function buildScene(id, { force = false } = {}) {
 // derives its socket.io path from the page URL (location.pathname + 'socket.io'),
 // and the viewer server is started with { prefix: '/viewer' } to match - the proxy
 // is a pure pass-through, no path rewriting.
-// Click-to-place needs the viewer's CAMERA, and prismarine-viewer's webpack bundle keeps its
-// Viewer (camera included) in module scope - nothing lands on `window`, not even THREE. (The
-// `global.THREE = require('three')` line in prismarine-viewer belongs to lib/index.js and
-// lib/headless.js, which are the NODE side; the browser bundle never runs them. A hook that
-// waits for window.THREE therefore waits forever, which is how click-to-place spent its whole
-// life silently returning "no hit" on every click.)
 //
-// What the bundle DOES offer is three.js's own devtools handshake: every WebGLRenderer and
-// Scene it constructs dispatches an 'observe' CustomEvent - whose `detail` IS the object - at
-// `window.__THREE_DEVTOOLS__`, if one exists. So we define one before the bundle loads, catch
-// the renderer, and wrap its render(), which is handed the live camera every single frame.
-// That handshake is a supported three.js API (r128 here), not a bundle internal - but if it
-// ever goes away the page just falls back to the automatic grid; placement is a nicety.
-const VIEWER_HOOK = `<script>
-(function () {
-  var hooked = false;
-  try {
-    window.__THREE_DEVTOOLS__ = {
-      dispatchEvent: function (e) {
-        var o = e && e.detail;
-        // Scenes announce themselves here too - the renderer is the one with a canvas.
-        if (hooked || !o || typeof o.render !== 'function' || !o.domElement) return;
-        hooked = true;
-        var render = o.render.bind(o);
-        // Only the to-screen pass carries the user's camera. The viewer also renders the
-        // scene through this same render() for its sky: a CubeCamera pass drawing 6 faces
-        // to a cube render target with cameras parked at the origin - park one of THOSE
-        // and every pick unprojects through an identity camera and misses the ground.
-        o.render = function (scene, camera) {
-          if (!o.getRenderTarget || o.getRenderTarget() === null) window.__cam = camera;
-          return render(scene, camera);
-        };
-      },
-    };
-  } catch (e) { /* viewer still works, placement falls back to auto */ }
-})();
-</script>`;
+// Click-to-place needs the viewer's CAMERA, which its bundle never puts on `window`. The hook
+// that gets hold of it anyway now lives in src/viewer-hook.js, because the visual critic
+// (src/shot.js) needs exactly the same thing in a headless page. If it ever stops working the
+// page just falls back to the automatic grid; placement is a nicety.
+const VIEWER_HOOK = VIEWER_HOOK_TAG;
 
 function proxyToViewer(req, res) {
   // Only the viewer's own HTML page gets the hook - everything else (the bundle, assets,
@@ -1017,9 +1008,13 @@ const server = http.createServer(async (req, res) => {
     try { payload = JSON.parse(body || '{}'); } catch { /* ignore */ }
     const prompt = (payload.prompt || '').toString().trim();
     const preset = (payload.preset || '').toString().trim();
+    // A preset is library geometry that the preset audit already simulates block by block -
+    // there is nothing for a vision model to find and no reason to pay for one. Only a prompt
+    // build can be reviewed.
+    const review = Boolean(payload.review) && state.canReview && !preset;
     if (state.busy) { res.writeHead(409, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'busy' })); }
     if (!prompt && !preset) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'empty' })); }
-    runBuild({ prompt, preset }).catch((e) => console.error('[Web]', e.message));   // fire-and-forget
+    runBuild({ prompt, preset, review }).catch((e) => console.error('[Web]', e.message));   // fire-and-forget
     res.writeHead(202, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ ok: true }));
   }
@@ -1091,7 +1086,21 @@ async function main() {
   // and the crew takes the better part of a minute, and doing it first meant every bit
   // of that progress landed in the terminal only - the browser then opened on a panel
   // that was already finished. Now the page is up front, so the boot streams into it.
-  await new Promise((resolve) => server.listen(WEB_PORT, resolve));
+  //
+  // A busy port is almost always another panel (two can't share a server anyway - the
+  // bots' fixed usernames mean the second crew kicks the first with duplicate_login),
+  // so say that instead of dying with a stack trace.
+  await new Promise((resolve, reject) => {
+    server.once('error', (err) => {
+      if (err.code !== 'EADDRINUSE') return reject(err);
+      console.error(`\x1b[31m✖ Port ${WEB_PORT} is already in use - another panel is probably running.\x1b[0m`);
+      console.error(`  Either use the one that's up:   http://localhost:${WEB_PORT}`);
+      console.error(`  Or stop it and run this again:  pkill -f 'scripts/w[e]b.js'`);
+      console.error(`  (Different port: WEB_PORT=8081 npm run web)\n`);
+      process.exit(1);
+    });
+    server.listen(WEB_PORT, resolve);
+  });
   console.log('========================================================');
   console.log(`  OPENING IN YOUR BROWSER:  http://localhost:${WEB_PORT}`);
   console.log(`  (watch the crew boot there - prompt box + live 3D view)`);
@@ -1222,6 +1231,11 @@ const PAGE = `<!doctype html>
   .aim[hidden] { display:none; }
   label.small { font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
   .inline { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .verdict { border:1px solid var(--edge2); border-left:3px solid var(--accent2); border-radius:8px;
+             background:var(--panel2); padding:9px 12px; font-size:12px; color:var(--dim); }
+  .verdictHead { color:var(--ink); font-size:13px; margin-bottom:4px; }
+  .verdict ul { margin:0; padding-left:16px; }
+  .verdict li { margin:2px 0; }
 
   /* Boot screen - the server/crew/viewer startup, which the terminal used to keep to itself. */
   .boot { position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:24px;
@@ -1277,6 +1291,11 @@ const PAGE = `<!doctype html>
         <button id="go">Build</button>
       </div>
       <p id="hint" class="hint"></p>
+      <label id="reviewRow" class="inline hint" style="display:none">
+        <input id="review" type="checkbox">
+        <span>Critique it when it's done - the AI looks at the finished build and fixes what it sees</span>
+      </label>
+      <div id="verdict" class="verdict" style="display:none"></div>
     </div>
     <div class="field">
       <label class="small">Or pick a preset (always free)</label>
@@ -1481,16 +1500,43 @@ const PAGE = `<!doctype html>
       b.disabled = s.busy;
       b.classList.toggle('active', b.dataset.id === s.background);
     });
+    // The critique toggle only appears when it can actually run: it needs a model that can
+    // look at a picture (src/critic.js), and it never runs on presets.
+    $('reviewRow').style.display = s.canReview ? 'flex' : 'none';
+    $('review').disabled = s.busy;
     if (s.phase==='planning') t.textContent = 'Designing your build...';
     else if (s.phase==='building') t.textContent = 'Building' + (s.last?' ':'') + '...';
+    else if (s.phase==='repairing') t.textContent = 'Fixing the blocks that did not land...';
+    else if (s.phase==='reviewing') t.textContent = 'Looking at the finished build...';
     else if (s.phase==='clearing') t.textContent = 'Clearing the ground...';
     else if (s.phase==='building_scene') t.textContent = 'Building the scene (one time)...';
     else if (s.phase==='switching') t.textContent = 'Switching scene...';
     else if (s.phase==='done' && s.last && s.last.prompt==='clear') t.textContent = 'Ground cleared - fresh slate ready';
     else if (s.phase==='done' && s.last && s.last.prompt==='scene') t.textContent = s.last.name + ' - ready to build';
-    else if (s.phase==='done' && s.last) t.textContent = 'Done: ' + s.last.name + ' (' + s.last.blocks + ' blocks)';
+    else if (s.phase==='done' && s.last) t.textContent = 'Done: ' + s.last.name + ' (' + s.last.blocks + ' blocks)'
+      + (s.last.repaired ? ' - ' + s.last.repaired + ' repaired' : '')
+      + (s.last.missing ? ', ' + s.last.missing + ' MISSING' : '');
     else if (s.phase==='error' && s.last) t.textContent = 'Error: ' + s.last.prompt;
     else t.textContent = busy ? 'Working...' : 'Idle - ready to build';
+
+    const v = $('verdict');
+    if (s.review && s.review.verdict) {
+      v.style.display = 'block';
+      v.innerHTML = '';
+      const head = document.createElement('div');
+      head.className = 'verdictHead';
+      head.textContent = (s.review.score != null ? s.review.score + '/10 - ' : '') + s.review.verdict;
+      v.appendChild(head);
+      const ul = document.createElement('ul');
+      for (const issue of s.review.issues || []) {
+        const li = document.createElement('li');
+        li.textContent = issue;    // model text - never innerHTML
+        ul.appendChild(li);
+      }
+      v.appendChild(ul);
+    } else {
+      v.style.display = 'none';
+    }
   }
 
   async function build(payload){
@@ -1498,13 +1544,14 @@ const PAGE = `<!doctype html>
     const r = await fetch('/build', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     if (r.status === 409) addLog('[Web] A build is already running - wait for it to finish.');
   }
-  $('go').addEventListener('click', () => { const p = $('prompt').value.trim(); if (p) build({ prompt: p }); });
+  const wantsReview = () => $('review').checked;
+  $('go').addEventListener('click', () => { const p = $('prompt').value.trim(); if (p) build({ prompt: p, review: wantsReview() }); });
   $('clear').addEventListener('click', () => {
     if (busy) return;
     if (!confirm('Bulldoze every build and re-grass the ground?')) return;
     fetch('/clear', { method:'POST' });
   });
-  $('prompt').addEventListener('keydown', (e) => { if (e.key==='Enter'){ const p=$('prompt').value.trim(); if(p) build({prompt:p}); } });
+  $('prompt').addEventListener('keydown', (e) => { if (e.key==='Enter'){ const p=$('prompt').value.trim(); if(p) build({prompt:p, review: wantsReview()}); } });
 
   fetch('/status').then(r=>r.json()).then(s => {
     setStatus(s);

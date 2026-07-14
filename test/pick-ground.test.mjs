@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import { VIEWER_HOOK_JS } from '../src/viewer-hook.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const src = readFileSync(path.join(root, 'scripts/web.js'), 'utf8');
@@ -90,10 +91,11 @@ pass(click(grazing, W / 2, H / 2) === null, 'a near-horizontal ray is refused, n
 // checks run the REAL injected script and hold it against the REAL installed bundle.
 
 // 1. Run the actual hook against a fake three.js renderer and see if it parks the camera.
-const hookSrc = (src.match(/const VIEWER_HOOK = `<script>([\s\S]*?)<\/script>`/) || [])[1];
-if (!hookSrc) {
-  pass(false, 'VIEWER_HOOK found in scripts/web.js');
-} else {
+// The hook lives in src/viewer-hook.js because TWO things inject it now - the web panel's proxy
+// (click-to-place) and src/shot.js (the visual critic's headless screenshots). This imports the
+// real module, so it still cannot drift from the code that ships.
+const hookSrc = VIEWER_HOOK_JS;
+{
   const win = {};
   new Function('window', hookSrc)(win);
   const devtools = win.__THREE_DEVTOOLS__;
@@ -122,6 +124,11 @@ if (!hookSrc) {
     renderer.target = null;
   }
 }
+
+// The page must actually SERVE the hook - importing a module the page never injects would be a
+// green test over a dead feature, which is the exact failure this whole section exists to catch.
+pass(/VIEWER_HOOK_TAG/.test(src) && /import \{ VIEWER_HOOK_TAG \} from '\.\.\/src\/viewer-hook\.js'/.test(src),
+  'the web panel injects the shared hook into the viewer page it proxies');
 
 // 3. The drag guard must arm on POINTERDOWN, not mousedown. The bundle's orbit controls
 // preventDefault() their pointerdown, and per the Pointer Events spec a canceled pointerdown

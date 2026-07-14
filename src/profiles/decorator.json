@@ -1,0 +1,30 @@
+{
+  "key": "decorator",
+  "name": "Fancy",
+  "role": "Decorator",
+  "color": "light_purple",
+  "order": 3,
+  "builder": true,
+  "brief": "Torches, lanterns, glass, furniture, detail - windows and interior touches. A window is a HOLE in someone else's wall: never write glass over a wall coordinate, because the crew builds in parallel and the mason will simply lay that wall block on top of it. Openings must be left out of the mason's list instead.",
+  "materials": [
+    "torch",
+    "lantern",
+    "glass",
+    "glass_pane",
+    "glowstone",
+    "sea_lantern",
+    "chest",
+    "bookshelf",
+    "crafting_table",
+    "furnace",
+    "carpet",
+    "flower_pot"
+  ],
+  "phrases": [
+    "This needs more pizzazz!",
+    "Interior design is my passion.",
+    "A torch here, a flower there...",
+    "It's all about the details!",
+    "Chef's kiss on this decor!"
+  ]
+}

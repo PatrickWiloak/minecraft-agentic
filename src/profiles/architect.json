@@ -1,0 +1,17 @@
+{
+  "key": "architect",
+  "name": "Archie",
+  "role": "Architect",
+  "color": "gold",
+  "order": 0,
+  "builder": false,
+  "brief": "Draws the plan; places no blocks. Kept for single-agent demos.",
+  "materials": [],
+  "phrases": [
+    "According to my blueprints...",
+    "The structural integrity looks good!",
+    "I've designed this to perfection.",
+    "Trust the process, team!",
+    "Form follows function!"
+  ]
+}

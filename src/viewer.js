@@ -10,6 +10,7 @@
 import net from 'net';
 
 let started = false;
+let startedUrl = null;   // where the view actually came up - the visual critic needs to open it
 
 // How far the browser renders, in CHUNKS. prismarine-viewer defaults to 6 (~96 blocks),
 // which was fine when the view chased a worker around the site. It no longer does: the view
@@ -103,6 +104,10 @@ export async function startViewer(bot, options = {}) {
       viewDistance: options.viewDistance ?? VIEW_DISTANCE,
     });
     started = true;
+    // The viewer's own origin, prefix included. src/shot.js opens THIS to photograph the build
+    // for the visual critic - it goes straight to the viewer rather than through the web panel's
+    // proxy, so the critic works the same under `npm run play` as under `npm run web`.
+    startedUrl = `http://127.0.0.1:${port}${options.prefix || ''}/`;
 
     // Tell every connected browser where the camera IS, once a second.
     //
@@ -124,6 +129,25 @@ export async function startViewer(bot, options = {}) {
     const heartbeat = setInterval(() => { if (bot.entity) bot.emit('move'); }, 1000);
     heartbeat.unref?.();
     bot.once('end', () => clearInterval(heartbeat));
+
+    // Same medicine for ENTITIES: builders were left floating at stale mid-hop positions
+    // after a build. The socket's entity stream is correct and complete at the source
+    // (tapping it shows every final position landing), but each browser connection has its
+    // own delivery - a stall or reconnect during the block-update flood of a build loses
+    // whatever was emitted in the gap, and a missed final teleport strands that builder
+    // mid-air forever, while the server has it parked on the ground. Re-announcing every
+    // entity's CURRENT position heals any strand within 2s; when the browser is already
+    // right, the event tweens a position onto itself and nothing visibly happens.
+    // (Found 2026-07-14: a build watched end-to-end left one bot drawn at a fractional
+    // mid-fall position 5+ seconds after the whole crew had teleported to its formation.)
+    const entityHeartbeat = setInterval(() => {
+      if (!bot.entity || !bot.entities) return;
+      for (const e of Object.values(bot.entities)) {
+        if (e !== bot.entity && e.position) bot.emit('entityMoved', e);
+      }
+    }, 2000);
+    entityHeartbeat.unref?.();
+    bot.once('end', () => clearInterval(entityHeartbeat));
     if (!options.quiet) {
       console.log('\n========================================================');
       console.log(`  WATCH IN YOUR BROWSER:  http://localhost:${port}`);
@@ -172,7 +196,13 @@ export async function attachViewer(opBot, options = {}) {
   return startViewer(opBot, viewerOptions);
 }
 
+/** Where the browser view is being served, or null if it never started. */
+export function viewerUrl() {
+  return startedUrl;
+}
+
 /** Test hook: reset the one-viewer-per-process guard. */
 export function _resetViewerState() {
   started = false;
+  startedUrl = null;
 }
