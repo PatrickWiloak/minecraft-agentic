@@ -1,0 +1,47 @@
+{
+  "name": "Ashford Watchtower",
+  "description": "A square stone watchtower with a shingled spruce spire, glazed windows on all four faces, a lantern-lit parapet, and a gravel path up through a wildflower meadow.",
+  "tasks": {
+    "mason": "Foundation, the tower shell, the parapet - and the doorway and glazed windows cut into it",
+    "carpenter": "The door sill, interior floors, the shingled spire, and the front door",
+    "decorator": "Lighting the parapet",
+    "landscaper": "The lawn, the approach path, and the meadow"
+  },
+  "ops": [
+    { "op": "box", "role": "mason", "x0": 5, "y0": -1, "z0": 5, "x1": 17, "y1": 0, "z1": 17, "type": "stone_bricks" },
+    { "op": "walls", "role": "mason", "x0": 6, "z0": 6, "x1": 16, "z1": 16, "y0": 1, "y1": 14, "type": "stone_bricks" },
+
+    { "op": "punch", "role": "mason", "x0": 11, "y0": 0, "z0": 6, "x1": 11, "y1": 2, "z1": 6 },
+    { "op": "window", "role": "mason", "x0": 10, "y0": 8, "z0": 6, "x1": 12, "y1": 9, "z1": 6, "type": "glass_pane" },
+    { "op": "window", "role": "mason", "x0": 10, "y0": 8, "z0": 16, "x1": 12, "y1": 9, "z1": 16, "type": "glass_pane" },
+    { "op": "window", "role": "mason", "x0": 16, "y0": 8, "z0": 10, "x1": 16, "y1": 9, "z1": 12, "type": "glass_pane" },
+    { "op": "window", "role": "mason", "x0": 6, "y0": 8, "z0": 10, "x1": 6, "y1": 9, "z1": 12, "type": "glass_pane" },
+
+    { "op": "walls", "role": "mason", "x0": 6, "z0": 6, "x1": 16, "z1": 16, "y0": 15, "y1": 15, "type": "stone_bricks" },
+
+    { "op": "put", "role": "carpenter", "x": 11, "y": 0, "z": 6, "type": "stone_bricks" },
+    { "op": "door", "role": "carpenter", "x": 11, "y": 1, "z": 6, "type": "oak_door", "facing": "north" },
+    { "op": "floor", "role": "carpenter", "x0": 7, "z0": 7, "x1": 15, "z1": 15, "y": 7, "type": "oak_planks" },
+    { "op": "floor", "role": "carpenter", "x0": 7, "z0": 7, "x1": 15, "z1": 15, "y": 14, "type": "spruce_planks" },
+    { "op": "cone", "role": "carpenter", "cx": 11, "cz": 11, "r0": 7, "y0": 16, "type": "spruce_stairs" },
+
+    { "op": "put", "role": "decorator", "x": 11, "y": 16, "z": 6, "type": "lantern" },
+    { "op": "put", "role": "decorator", "x": 11, "y": 16, "z": 16, "type": "lantern" },
+    { "op": "put", "role": "decorator", "x": 6, "y": 16, "z": 11, "type": "lantern" },
+    { "op": "put", "role": "decorator", "x": 16, "y": 16, "z": 11, "type": "lantern" },
+
+    { "op": "floor", "role": "landscaper", "x0": 0, "z0": 0, "x1": 4, "z1": 23, "y": -1, "type": "grass_block" },
+    { "op": "floor", "role": "landscaper", "x0": 18, "z0": 0, "x1": 23, "z1": 23, "y": -1, "type": "grass_block" },
+    { "op": "floor", "role": "landscaper", "x0": 5, "z0": 0, "x1": 17, "z1": 4, "y": -1, "type": "grass_block" },
+    { "op": "floor", "role": "landscaper", "x0": 5, "z0": 18, "x1": 17, "z1": 23, "y": -1, "type": "grass_block" },
+    { "op": "floor", "role": "landscaper", "x0": 10, "z0": 0, "x1": 12, "z1": 4, "y": -1, "type": "gravel" },
+    { "op": "scatter", "role": "landscaper", "x0": 0, "z0": 0, "x1": 4, "z1": 23, "y": 0, "type": "poppy", "density": 0.08 },
+    { "op": "scatter", "role": "landscaper", "x0": 18, "z0": 0, "x1": 23, "z1": 23, "y": 0, "type": "dandelion", "density": 0.08 },
+    { "op": "scatter", "role": "landscaper", "x0": 5, "z0": 18, "x1": 17, "z1": 23, "y": 0, "type": "cornflower", "density": 0.08 }
+  ],
+  "teamChat": [
+    { "from": "mason", "message": "Foundation down. Shell going up - I'm leaving the door and window holes open as I go." },
+    { "from": "carpenter", "message": "Sill first, then the door. Spruce shingles on the spire." },
+    { "from": "decorator", "message": "Glazing those openings and hanging lanterns on the parapet." }
+  ]
+}

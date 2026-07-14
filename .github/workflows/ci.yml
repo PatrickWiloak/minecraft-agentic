@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor declared in package.json engines, and the version we develop on.
+        node: [20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # `npm ci` also runs postinstall -> scripts/patch-viewer.js, which is the point:
+      # prismarine-viewer ships bugs that make stairs invisible and the perimeter blink,
+      # and the patch has to survive a clean install or the browser view is wrong.
+      - name: Install
+        run: npm ci
+
+      # The whole suite runs with no API key, no Minecraft server and no Docker: it covers
+      # click-to-place against the real viewer bundle, the repair/critic patch handling, and
+      # a physics simulation of every library preset on the crew's real parallel schedule.
+      - name: Test
+        run: npm test
+
+      - name: Audit
+        run: npm audit --audit-level=high

@@ -80,6 +80,46 @@ pass would have fixed. **Fix what's broken, THEN ask whether it's any good.**
 - A patch is applied to the **PLAN**, not just the world (`applyPatch`), so the next `verifyBuild`
   holds the patched design to account too. The design is what improved, not just the output.
 
+## The model designs in OPS, not in blocks (added 2026-07-14)
+**The presets were never better because a human designed them - they were better because a human
+gave them PRIMITIVES.** A preset says `walls(...)` and gets 400 gap-free blocks; the model was
+asked for that same wall as a JSON array with one object per block, ~11 tokens each. A 900-block
+build is then ~10k tokens of pure mechanical enumeration and the castle (3,338 blocks) is ~38k -
+which no output budget could buy. So the model did what anyone would when told to enumerate
+thousands of tedious items: it shortcut, returning **74 blocks with holes in the walls**, and our
+own critic scored it **3/10** and was right.
+- `src/ops.js` gives the model the SAME primitives, via `src/library/canvas.js` (extracted from
+  the library so presets and AI builds are expanded by identical code). An op is one line and
+  expands to hundreds of blocks (~28x compression), so the model can finally afford the scale we
+  ask for and spends its budget on DESIGN instead of typing. Same prompt, measured: **74 blocks /
+  3/10 -> 2,773 blocks / 10/10, 0 missing.**
+- **The point is not compression, it is that the old mistakes become IMPOSSIBLE.** A `walls` op is
+  gap-free by construction; `door` always places both halves; `cone` orients its own stair
+  shingles. Every rule this crew learned the hard way used to be *requested in prose* and
+  reproduced by hand hundreds of times without a slip. Now it is enforced once, in code.
+- **If a rule needs two ops to AGREE, make it one op.** Glazing was `punch` the wall + place the
+  glass, and the model got the two coordinate sets subtly out of step: the live 10/10 build had
+  **panes of glass floating in mid-air outside the tower**, which the critic never mentioned. The
+  `window` op now carves and glazes in one move, and glazes ONLY coordinates where a wall was
+  really removed (`canvas.punch` returns what it removed) - so a window aimed at thin air is a
+  no-op instead of a floating cube. `door` was already this shape; `window` is the same lesson.
+- **Every op is UNTRUSTED INPUT** - the same job `normalizePatch` does in `repair.js`. `expandOps`
+  is the only door: it clamps coords to the plot (or the fix lands on the neighbour's build),
+  refuses a runaway op outright (clamping a world-sized `box` still fills the plot solid), caps the
+  total, coerces unknown roles, drops unknown ops - and **validates block names against the real
+  1.20.1 registry**, repairing near-misses (`stone_brick` -> `stone_bricks`) and dropping the rest.
+  A hallucinated name is the quietest failure in the project: `/setblock` discards it without a
+  word, leaving holes nothing in the log explains. A model that ignores the format and returns raw
+  BLOCKS is converted to `put` ops and goes through the same door.
+- **The op reference in the coordinator's prompt is GENERATED from the `OPS` table**, so the prompt
+  cannot describe an op that does not exist or miss one that does.
+- **The worked example (`src/plans/reference-ops.json`) is the most-copied build in the project** -
+  it is shown to the model on EVERY request, so if it degrades, every AI build degrades with it. It
+  is therefore audited on the same parallel-physics simulator as the nine presets
+  (`npm run test:presets`), and writing it flushed out two real bugs the audit caught before any
+  model ever saw it: flowers scattered onto ground that `executeBuild` had cleared to air, and a
+  door hung before the mason's foundation reached it. Pinned by `npm run test:ops`.
+
 ## Codebase Invariants
 - **Two things make a model call fail while looking like the model "refused to answer", and both
   were live bugs on 2026-07-14. Check them BEFORE you debug a prompt.** (1) **A Gemini model can die
@@ -376,8 +416,10 @@ npm run test:loops     # repair/critic patch handling, crew profiles, blueprint 
 npm run test:presets   # simulate every preset on the crew's real parallel schedule (no server)
 npm run test:viewer    # does the BROWSER see what the crew built? (needs a server, no key)
 npm run ops            # regenerate docker/ops.json (offline-UUID operators)
-npm run record         # record the hero clip from a RUNNING `npm run web` (needs ffmpeg + playwright);
-                       #   writes a date-stamped .mp4 master + the compressed .webp the README embeds
+npm run record         # record a timelapse clip from a RUNNING `npm run web` (needs ffmpeg + playwright);
+                       #   writes a date-stamped .mp4 master + compressed .webp. NOTE: the README's hero
+                       #   media is SCREENSHOTS of finished builds (docs/media/crew-*.png) as of 2026-07-14 -
+                       #   the software-GL + webp-compressed footage reads much worse than stills
 
 npm run setup          # onboarding: creates .env, checks Node/Docker/server
 npm run demo "a castle" # single-agent build (uses your AI key, or the library if none)
@@ -453,3 +495,5 @@ Rules:
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- `graphify-out/` is **gitignored here** (this repo is open-source bound - the public-repo rule).
+  It is machine-local and regenerable, so build it yourself with `graphify update .`; do not commit it.

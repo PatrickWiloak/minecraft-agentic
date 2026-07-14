@@ -24,16 +24,28 @@ If you want something like Minecraft Agentic Builder built for your domain, [get
 **Watch a crew of AI agents design and build castles in Minecraft - live, in your browser.
 You don't even need to own the game.**
 
-[![Node 18+](https://img.shields.io/badge/node-18%2B-brightgreen)](https://nodejs.org)
+[![CI](https://github.com/PatrickWiloak/minecraft-agentic/actions/workflows/ci.yml/badge.svg)](https://github.com/PatrickWiloak/minecraft-agentic/actions/workflows/ci.yml)
+[![Node 20+](https://img.shields.io/badge/node-20%2B-brightgreen)](https://nodejs.org)
 [![Minecraft 1.20.1](https://img.shields.io/badge/minecraft-1.20.1-blue)](https://www.minecraft.net)
 [![Works with no API key](https://img.shields.io/badge/API%20key-optional-orange)](#-pick-your-ai)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
-<img src="docs/media/crew-castle-timelapse-800x450-13JUL2026.webp" alt="Four AI bots building Stonewatch Keep, captured live from the built-in browser viewer" width="800">
+<img src="docs/media/crew-castle-cherry-1600x900-14JUL2026.png" alt="Stonewatch Keep, built block-by-block by four AI bots, captured live from the built-in browser viewer" width="800">
 
-*Rocky, Woody, Fancy, and Bloom building Stonewatch Keep (3,130 blocks, every one verified
-in-world) on the Cherry Grove scene - recorded straight from the built-in browser viewer with
-`npm run record`. No Minecraft client involved.*
+*Stonewatch Keep (2,559 blocks, every one verified in-world) on the Cherry Grove scene, minutes
+after Rocky, Woody, Fancy, and Bloom finished it - a straight screenshot of the built-in
+browser viewer. No Minecraft client involved.*
+
+<table>
+  <tr>
+    <td><img src="docs/media/crew-pagoda-jungle-800x450-14JUL2026.png" alt="The Vermilion Pagoda on the Jungle scene" width="400"></td>
+    <td><img src="docs/media/crew-plot-beach-800x450-14JUL2026.png" alt="A beach plot filling up: cottage, windmill, pagoda, lighthouse, ship, and observatory built side by side" width="400"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>The Vermilion Pagoda, Jungle scene</em></td>
+    <td align="center"><em>One beach plot, six builds later</em></td>
+  </tr>
+</table>
 
 </div>
 
@@ -52,7 +64,7 @@ you:   type an idea, click the ground where you want it, watch it go up
 
 ## ⚡ Quick start
 
-You need **[Docker](https://www.docker.com/products/docker-desktop/)** and **Node.js 18+**.
+You need **[Docker](https://www.docker.com/products/docker-desktop/)** and **Node.js 20+**.
 That's it - no Minecraft account, no API key.
 
 ```bash
@@ -244,8 +256,8 @@ yours, **nothing breaks** - the bots still build and you watch in-game instead
 
 ## 🎬 Making content with it
 
-This project exists to produce great footage, so the clip at the top of this README is not a
-hand-edit - it's a command:
+This project exists to produce great footage. The screenshots at the top of this README are
+straight captures of the built-in browser viewer; for moving pictures there's a command:
 
 ```bash
 npm run web                                              # in one terminal
@@ -255,9 +267,11 @@ npm run record -- --preset=wizardTower --scene=snowy     # any preset, any scene
 
 `npm run record` (`scripts/record-demo.mjs`) points a headless browser at the 3D view, frames
 the shot, builds, and cuts a two-speed timelapse - the build races past, then a slow orbit
-reveals the finished thing. It writes an `.mp4` master and the compressed animated `.webp` the
-README embeds, both date-stamped. It needs `ffmpeg` and `npx playwright install chromium`; it
-refuses to publish a clip of a build that didn't finish.
+reveals the finished thing. It writes an `.mp4` master and a compressed animated `.webp`, both
+date-stamped. It needs `ffmpeg` and `npx playwright install chromium`; it refuses to publish a
+clip of a build that didn't finish. (Fair warning: the software-rendered headless capture plus
+heavy `.webp` compression reads noticeably worse than the live viewer - for a README or a
+thumbnail, a screenshot of the finished build is the better-looking artifact.)
 
 Hand-rolling it instead? Pick a scene that suits the build (Cherry Grove and Snowy shoot well),
 prompt something dramatic - *"an epic dragon statue"* - and record the browser view. The camera
@@ -265,8 +279,7 @@ holds still during a build, so the footage is steady enough to speed up hard.
 
 Hooks that land: *"I let 4 AI agents loose in Minecraft"*, *"AI construction crew builds my
 dumbest ideas"*, *"these bots argue while building a castle"*. Multiple bots in frame +
-chat bubbles + a zoom-out reveal is the formula. The clip at the top of this README was
-captured exactly this way.
+chat bubbles + a zoom-out reveal is the formula.
 
 ## ⚙️ Configuration
 

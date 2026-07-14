@@ -28,7 +28,7 @@ step breaks.
 
 | Requirement | Why | Check |
 |-------------|-----|-------|
-| **Node.js 18+** | Runs the bots and the viewer | `node --version` |
+| **Node.js 20+** | Runs the bots and the viewer | `node --version` |
 | **Docker** | Runs the Minecraft server | `docker info` |
 | **An AI key** | Only for custom prompts (not the built-in library) | see below - Gemini is free |
 

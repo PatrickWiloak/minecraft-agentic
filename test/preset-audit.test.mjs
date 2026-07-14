@@ -22,7 +22,9 @@
 //
 // Generators are random, so each preset is audited across many seeded runs; any defect on
 // any seed fails. Run: npm run test:presets
+import { readFileSync } from 'node:fs';
 import { getLibraryPlan, listBuilds } from '../src/library/index.js';
+import { planFromOps } from '../src/ops.js';
 import { buildRoute } from '../src/worker.js';
 
 const STAGGER_MS = 3000;   // crew.js: parallel role start stagger
@@ -214,15 +216,31 @@ function simulate(plan) {
   return issues;
 }
 
+// --- what gets audited -------------------------------------------------------------------
+// The nine library presets, plus the OPS REFERENCE BUILD (src/plans/reference-ops.json).
+// That last one is the worked example the coordinator shows the model on every request, so
+// it is the single most-copied build in the project - it has to be held to exactly the same
+// bar as a preset, on the same simulator, or we are teaching the model our bugs.
+const subjects = [
+  ...listBuilds().map(({ id }) => ({ id, make: () => getLibraryPlan(id) })),
+  {
+    id: 'reference-ops',
+    make: () => planFromOps(
+      JSON.parse(readFileSync(new URL('../src/plans/reference-ops.json', import.meta.url), 'utf8')),
+      { log: () => {} },
+    ),
+  },
+];
+
 // --- run ---------------------------------------------------------------------------------
 const realRandom = Math.random;
 let failed = 0;
-for (const { id } of listBuilds()) {
+for (const { id, make } of subjects) {
   const distinct = new Map();   // issue signature -> {count, example, seeds}
   for (let seed = 1; seed <= RUNS; seed++) {
     Math.random = mulberry32(seed * 0x9e3779b9);
     let plan;
-    try { plan = getLibraryPlan(id); } finally { Math.random = realRandom; }
+    try { plan = make(); } finally { Math.random = realRandom; }
     for (const issue of simulate(plan)) {
       const sig = issue.replace(/\(-?\d+,-?\d+,-?\d+\)/g, '(x,y,z)').replace(/@[\d.]+s/g, '').replace(/t=[\d.]+s/g, '');
       if (!distinct.has(sig)) distinct.set(sig, { count: 0, example: issue, seeds: [] });
