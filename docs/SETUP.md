@@ -166,12 +166,17 @@ volume path resolves:
 docker run -d -p 25565:25565 \
   -e EULA=TRUE -e ONLINE_MODE=FALSE -e ENABLE_COMMAND_BLOCK=TRUE \
   -e VERSION=1.20.1 \
+  -e LEVEL_TYPE=FLAT \
+  -e 'GENERATOR_SETTINGS={"layers":[{"block":"minecraft:bedrock","height":1},{"block":"minecraft:deepslate","height":63},{"block":"minecraft:stone","height":61},{"block":"minecraft:dirt","height":2},{"block":"minecraft:grass_block","height":1}],"biome":"minecraft:plains"}' \
   -v "$PWD/docker/ops.json:/data/ops.json" \
   itzg/minecraft-server:java21
 ```
 
-> Use a **normal** world (the default), not superflat: superflat ground sits at y=-60, and the
-> browser viewer only frames the build when the bot is at a positive Y.
+> The `LEVEL_TYPE`/`GENERATOR_SETTINGS` pair makes a **raised superflat** world: solid rock from
+> bedrock to a grass surface at y=63. Flat on purpose - normal terrain generates caverns under
+> every build site, and nothing in this project goes underground. Don't use a *default* superflat
+> (plain `LEVEL_TYPE=FLAT` with no layers): its ground sits at y=-60, and the browser viewer never
+> draws anything below y=0, so the view renders as empty sky.
 
 > Don't use the itzg `OPS` env var here - it does an online PlayerDB lookup that **fails** for
 > offline (`online-mode=false`) usernames and stops the server from starting. The mounted
@@ -182,10 +187,13 @@ docker run -d -p 25565:25565 \
 1. Download the 1.20.1 server jar from [minecraft.net/download/server](https://www.minecraft.net/en-us/download/server).
 2. Run it once to generate files: `java -jar server.jar nogui` (it will stop asking you to accept the EULA).
 3. In `eula.txt` set `eula=true`.
-4. In `server.properties` set:
+4. In `server.properties` set (the last two BEFORE the world first generates - they make the
+   raised superflat world described above; on an existing world they do nothing):
    ```
    online-mode=false
    enable-command-block=true
+   level-type=flat
+   generator-settings={"layers":[{"block":"minecraft:bedrock","height":1},{"block":"minecraft:deepslate","height":63},{"block":"minecraft:stone","height":61},{"block":"minecraft:dirt","height":2},{"block":"minecraft:grass_block","height":1}],"biome":"minecraft:plains"}
    ```
 5. Start it again: `java -jar server.jar nogui`
 6. **Op the bots** in the server console (this is required - without it the bots connect but

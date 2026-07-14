@@ -15,6 +15,26 @@ const IMAGE = 'itzg/minecraft-server:java21';
 const PORT = parseInt(process.env.MC_PORT || '25565', 10);
 const VOLUME = 'minecraft-agentic-data';
 
+// RAISED superflat: solid rock from bedrock to a grass surface at y=63 (stand at y=64).
+// Flat on purpose - normal terrain generates caverns under every plot, and nothing in this
+// project ever goes underground; the scenes' "solid encased base" only ever papered over
+// the caves directly beneath a platform. NOTE the layer heights: a DEFAULT superflat's
+// surface sits at y=-60, and prismarine-viewer never meshes sections below y=0 (its
+// worldrenderer loops y 0..255), so a default flat world renders as empty sky in the
+// browser. The 128 layers below put the surface at y=63 - comfortably above that floor
+// and one block over the panel's SEA_Y=62, so shore scenes still flood correctly.
+// Takes effect only at world CREATION: changing this needs `npm run server:reset`.
+const GENERATOR_SETTINGS = JSON.stringify({
+  layers: [
+    { block: 'minecraft:bedrock', height: 1 },
+    { block: 'minecraft:deepslate', height: 63 },
+    { block: 'minecraft:stone', height: 61 },
+    { block: 'minecraft:dirt', height: 2 },
+    { block: 'minecraft:grass_block', height: 1 },
+  ],
+  biome: 'minecraft:plains',
+});
+
 const g = (s) => `\x1b[32m${s}\x1b[0m`;
 const y = (s) => `\x1b[33m${s}\x1b[0m`;
 const r = (s) => `\x1b[31m${s}\x1b[0m`;
@@ -89,9 +109,8 @@ export async function ensureServerUp() {
       `--name ${NAME}`,
       `-p ${PORT}:25565`,
       '-e EULA=TRUE -e ONLINE_MODE=FALSE -e ENABLE_COMMAND_BLOCK=TRUE',
-      // Normal terrain (positive Y). NOTE: don't use a superflat world here - its ground
-      // sits at y=-60, and prismarine-viewer's browser camera only frames the build when
-      // the bot's y > 0, so a flat world leaves the viewer staring at empty space.
+      // Raised superflat - no caverns anywhere (see GENERATOR_SETTINGS above).
+      `-e LEVEL_TYPE=FLAT -e 'GENERATOR_SETTINGS=${GENERATOR_SETTINGS}'`,
       // 1.20.1: must match the bots (src/bot.js) AND be exactly supported by
       // prismarine-viewer so the browser view renders blocks correctly.
       `-e VERSION=${process.env.MC_VERSION || '1.20.1'} -e MEMORY=${process.env.MC_MEMORY || '2G'}`,

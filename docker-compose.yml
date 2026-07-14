@@ -18,9 +18,13 @@ services:
       ENABLE_COMMAND_BLOCK: "TRUE"
       VERSION: "1.20.1"
       MEMORY: "1G"
-      # Normal terrain on purpose (positive Y). Do NOT use a superflat world: its ground is
-      # at y=-60, and prismarine-viewer's browser camera only frames the build when the bot's
-      # y > 0, so a flat world leaves the viewer staring at empty space.
+      # Raised superflat: solid rock from bedrock to a grass surface at y=63. Flat on purpose -
+      # normal terrain generates caverns under every plot and nothing here goes underground.
+      # Do NOT use a default superflat (no GENERATOR_SETTINGS): its surface sits at y=-60 and
+      # prismarine-viewer never meshes sections below y=0, so it renders as empty sky.
+      # Must match scripts/server.js. Takes effect only at world CREATION.
+      LEVEL_TYPE: "FLAT"
+      GENERATOR_SETTINGS: '{"layers":[{"block":"minecraft:bedrock","height":1},{"block":"minecraft:deepslate","height":63},{"block":"minecraft:stone","height":61},{"block":"minecraft:dirt","height":2},{"block":"minecraft:grass_block","height":1}],"biome":"minecraft:plains"}'
     volumes:
       - mc-data:/data
       # CRITICAL: the bots build with /setblock, /fill and /tp, which require operator

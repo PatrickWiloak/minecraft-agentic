@@ -1,16 +1,16 @@
-# Graph Report - minecraft-agentic  (2026-07-13)
+# Graph Report - minecraft-agentic  (2026-07-14)
 
 ## Corpus Check
-- 48 files · ~320,572 words
+- 48 files · ~321,992 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 509 nodes · 902 edges · 32 communities (24 shown, 8 thin omitted)
+- 510 nodes · 903 edges · 32 communities (24 shown, 8 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 1 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a9282de2`
+- Built from commit: `dca5f4fe`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -121,8 +121,8 @@ Cohesion: 0.33
 Nodes (5): For /graphify explain, For /graphify path, graphify reference: query, path, explain, Step 0 — Constrained query expansion (REQUIRED before traversal), Step 1 — Traversal
 
 ### Community 12 - "Community 12"
-Cohesion: 0.31
-Nodes (17): containerState(), ensureServerUp(), g(), mcBootedInLogs(), PORT, portOpen(), quiet(), r() (+9 more)
+Cohesion: 0.28
+Nodes (18): containerState(), ensureServerUp(), g(), GENERATOR_SETTINGS, mcBootedInLogs(), PORT, portOpen(), quiet() (+10 more)
 
 ### Community 13 - "Community 13"
 Cohesion: 0.50
@@ -169,7 +169,7 @@ Cohesion: 0.20
 Nodes (17): arg(), BUILD_SPEED, dateStamp(), main(), NAME, OUT_DIR, [OUT_W, OUT_H], panel() (+9 more)
 
 ## Knowledge Gaps
-- **205 isolated node(s):** `PreToolUse`, `allow`, `kiroAgent.configureMCP`, `name`, `version` (+200 more)
+- **206 isolated node(s):** `PreToolUse`, `allow`, `kiroAgent.configureMCP`, `name`, `version` (+201 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -181,7 +181,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Why does `Crew` connect `Community 30` to `Community 3`, `Community 4`?**
   _High betweenness centrality (0.028) - this node is a cross-community bridge._
 - **What connects `PreToolUse`, `allow`, `kiroAgent.configureMCP` to the rest of the system?**
-  _205 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _206 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.09090909090909091 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**

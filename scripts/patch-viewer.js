@@ -1,12 +1,26 @@
-// Fix prismarine-viewer's "stairs are air" bug in the installed package.
+// Fix two prismarine-viewer bugs in the installed package.
 //
-// viewer/lib/models.js (and its webpack bundle public/worker.js, which is what the BROWSER
-// actually runs) skips model lookup for any block whose name contains the substring "air" -
-// meant for air/cave_air/void_air, but "stAIRs" matches too, so every stair block in the
-// game meshes to zero geometry and simply does not exist in the browser view. That is why
-// a finished cottage rendered as a roofless shell with its slab ridge floating in mid-air
-// (slabs render; the stairs under them don't), and why the castle's tower cones showed as
-// floating apex caps. The world was always right; the picture wasn't. Found 2026-07-13.
+// 1. "Stairs are air": viewer/lib/models.js (and its webpack bundle public/worker.js, which
+// is what the BROWSER actually runs) skips model lookup for any block whose name contains
+// the substring "air" - meant for air/cave_air/void_air, but "stAIRs" matches too, so every
+// stair block in the game meshes to zero geometry and simply does not exist in the browser
+// view. That is why a finished cottage rendered as a roofless shell with its slab ridge
+// floating in mid-air (slabs render; the stairs under them don't), and why the castle's
+// tower cones showed as floating apex caps. The world was always right; the picture wasn't.
+// Found 2026-07-13.
+//
+// 2. "The perimeter pops": worldrenderer.js (bundled into public/index.js) DELETES a chunk
+// column's meshes the instant the column leaves the camera's radius, and DROPS finished
+// geometry whose column unloaded while the mesh job was in flight (remove old mesh -> check
+// loadedChunks -> return; the frozen-section bug). Every build start hops the camera bot one
+// grid cell, which slides the render radius: a 17-column strip at the trailing edge vanishes
+// on the spot and the leading edge re-meshes in over a second or two - in the browser, the
+// plot's perimeter (shore, water band, horizon) blinks out and pops back at every build.
+// Measured 2026-07-14 by tapping the viewer socket: one aimCamera hop = 17 unloadChunks.
+// Our world is static except where the crew is building, so the STALE mesh of an out-of-range
+// column is the correct picture of it - keep it (it is refreshed the moment the column comes
+// back in range), and always apply late geometry instead of stranding a hole. Memory stays
+// bounded: the scene plots are finite and a session revisits the same chunks.
 //
 // Patching the installed files is the only option: the browser loads the PREBUILT bundle,
 // so fixing the source alone changes nothing. Idempotent - safe to run any number of times.
@@ -44,6 +58,36 @@ export function patchViewer({ quiet = false } = {}) {
       from: /(\w+)\.name\.includes\("air"\)/g,
       to: '($1.name==="air"||$1.name.endsWith("_air"))',
     },
+
+    // --- perimeter-pop fixes (worldrenderer): keep stale meshes, apply late geometry ---
+    {
+      // removeColumn: stop deleting the column's meshes when it leaves the radius. The
+      // setSectionDirty(pos, false) cancellations stay; only the scene.remove/dispose goes.
+      label: 'keep stale meshes on unload (source)',
+      file: path.join(pkgDir, 'viewer/lib/worldrenderer.js'),
+      from: /      this\.setSectionDirty\(new Vec3\(x, y, z\), false\)\n      const key = `\$\{x\},\$\{y\},\$\{z\}`\n      const mesh = this\.sectionMeshs\[key\]\n      if \(mesh\) \{\n        this\.scene\.remove\(mesh\)\n        dispose3\(mesh\)\n      \}\n      delete this\.sectionMeshs\[key\]\n/,
+      to: '      this.setSectionDirty(new Vec3(x, y, z), false)\n      // patched: keep the stale mesh - the world out of range is static, and the mesh is\n      // replaced the moment the column re-enters the radius (addColumn re-dirties it)\n',
+    },
+    {
+      // geometry handler: don't drop a finished mesh because its column unloaded mid-job -
+      // the old mesh was already removed, so dropping strands a hole (the frozen-section bug)
+      label: 'apply late geometry (source)',
+      file: path.join(pkgDir, 'viewer/lib/worldrenderer.js'),
+      from: /          const chunkCoords = data\.key\.split\(','\)\n          if \(!this\.loadedChunks\[chunkCoords\[0\] \+ ',' \+ chunkCoords\[2\]\]\) return\n\n/,
+      to: '          // patched: always apply finished geometry - it was meshed from valid data\n',
+    },
+    {
+      label: 'keep stale meshes on unload (bundle)',
+      file: path.join(pkgDir, 'public/index.js'),
+      from: /;const (\w+)=`\$\{(\w+)\},\$\{(\w+)\},\$\{(\w+)\}`,(\w+)=this\.sectionMeshs\[\1\];\5&&\(this\.scene\.remove\(\5\),(\w+)\(\5\)\),delete this\.sectionMeshs\[\1\]\}/,
+      to: '}',
+    },
+    {
+      label: 'apply late geometry (bundle)',
+      file: path.join(pkgDir, 'public/index.js'),
+      from: /const (\w+)=(\w+)\.key\.split\(","\);if\(!this\.loadedChunks\[\1\[0\]\+","\+\1\[2\]\]\)return;/,
+      to: '',
+    },
   ];
 
   let patched = 0;
@@ -51,14 +95,16 @@ export function patchViewer({ quiet = false } = {}) {
     if (!fs.existsSync(t.file)) continue;
     const src = fs.readFileSync(t.file, 'utf8');
     if (!t.from.test(src)) continue;   // already patched (or upstream fixed it)
-    fs.writeFileSync(t.file, src.replace(t.from, (m, v) => t.to.replace(/\$1/g, v)));
+    fs.writeFileSync(t.file, src.replace(t.from, t.to.includes('$1')
+      ? (m, v) => t.to.replace(/\$1/g, v)
+      : t.to));
     patched++;
-    if (!quiet) console.log(`[patch-viewer] fixed stairs-are-air in ${path.relative(pkgDir, t.file)}`);
+    if (!quiet) console.log(`[patch-viewer] ${t.label || 'fixed stairs-are-air'} in ${path.relative(pkgDir, t.file)}`);
   }
   return { patched, ok: true };
 }
 
-// Verify mode for tests: exit 1 if the installed files still carry the bug.
+// Verify mode for tests: exit 1 if the installed files still carry either bug.
 export function checkViewer() {
   const pkgDir = path.dirname(require.resolve('prismarine-viewer/package.json'));
   const bad = [];
@@ -66,7 +112,17 @@ export function checkViewer() {
     const f = path.join(pkgDir, rel);
     if (!fs.existsSync(f)) continue;
     const src = fs.readFileSync(f, 'utf8');
-    if (/\w+\.name\.includes\(['"]air['"]\)/.test(src)) bad.push(rel);
+    if (/\w+\.name\.includes\(['"]air['"]\)/.test(src)) bad.push(`${rel} (stairs-are-air)`);
+  }
+  for (const rel of ['viewer/lib/worldrenderer.js', 'public/index.js']) {
+    const f = path.join(pkgDir, rel);
+    if (!fs.existsSync(f)) continue;
+    const src = fs.readFileSync(f, 'utf8');
+    // either the unload-time mesh delete or the late-geometry drop still present
+    if (/setSectionDirty\([^)]*, ?(false|!1)\)[\s\S]{0,200}?this\.scene\.remove/.test(src)
+      || /key\.split\(['"],['"]\);?\s*if ?\(!this\.loadedChunks\[/.test(src)) {
+      bad.push(`${rel} (perimeter-pop)`);
+    }
   }
   return bad;
 }

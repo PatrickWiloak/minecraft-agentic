@@ -120,8 +120,8 @@
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1783976019.5059948,
-    "ast_hash": "028b2b36fa21e0a3f675fcc3da02f1d5",
+    "mtime": 1784039900.2237375,
+    "ast_hash": "34309a2563c3903630e5b7bb192bb443",
     "semantic_hash": ""
   },
   "README.md": {
@@ -135,13 +135,13 @@
     "semantic_hash": ""
   },
   "TODO.md": {
-    "mtime": 1783975966.5499954,
-    "ast_hash": "7e01441136e6b227df9aaae8d8a9c1e9",
+    "mtime": 1784039923.6837375,
+    "ast_hash": "f34b31b0e5add4edf143465a1e491820",
     "semantic_hash": ""
   },
   "docs/SETUP.md": {
-    "mtime": 1783955468.473997,
-    "ast_hash": "814fd34e33d42b3d0c5681cf4241e223",
+    "mtime": 1784039816.4037387,
+    "ast_hash": "a882be61230cf054f56e4e3def22ea9f",
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
@@ -165,12 +165,12 @@
     "semantic_hash": ""
   },
   "docker-compose.yml": {
-    "mtime": 1783781254.009352,
-    "ast_hash": "d32ece76596d7401d2f036f9df4ac93b",
+    "mtime": 1784037315.9077325,
+    "ast_hash": "2b5ef70d2cd2f634c3b0afc3a3665c77",
     "semantic_hash": ""
   },
   "docker/ops.json": {
-    "mtime": 1783950436.8139834,
+    "mtime": 1784037378.4597306,
     "ast_hash": "eb8c368d74dda529a83972b944570afd",
     "semantic_hash": ""
   },
@@ -190,8 +190,8 @@
     "semantic_hash": ""
   },
   "scripts/server.js": {
-    "mtime": 1783922034.3323402,
-    "ast_hash": "1efd29a54b2f06f868dfd2c199f23a1b",
+    "mtime": 1784037304.4677331,
+    "ast_hash": "09651df1cb0f8cacb460391cc094699c",
     "semantic_hash": ""
   },
   "src/library/index.js": {
@@ -245,8 +245,8 @@
     "semantic_hash": ""
   },
   "scripts/patch-viewer.js": {
-    "mtime": 1783957525.9459965,
-    "ast_hash": "f6b2b3e1f569646316f7c85ad282046f",
+    "mtime": 1784039025.3077362,
+    "ast_hash": "b0258c73ae79fa4695f1ef49b86a2300",
     "semantic_hash": ""
   },
   "scripts/record-demo.mjs": {

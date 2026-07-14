@@ -74,6 +74,17 @@ the `boot.steps` list, or it goes back to being invisible outside the terminal.
   `OfflinePlayer:<name>`). Regenerate with `npm run ops` (`scripts/gen-ops.js`); a custom `MC_USERNAME`
   must be added (`npm run ops -- Name`) and the server restarted. #1 "why isn't it building" gotcha,
   verified end-to-end 2026-07-10 (full crew built 252 blocks in-world, no manual op).
+- **The world is a RAISED superflat - solid rock from bedrock to a grass surface at y=63 - and
+  the layer heights are load-bearing.** Normal terrain generates caverns under every plot, and
+  nothing in this project ever goes underground (the scenes' "solid encased base" only papered
+  over the caves directly beneath a platform), so `scripts/server.js` + `docker-compose.yml` set
+  `LEVEL_TYPE=FLAT` with explicit `GENERATOR_SETTINGS` layers. Do NOT simplify to a default
+  superflat: its surface sits at y=-60, and prismarine-viewer never meshes sections below y=0
+  (worldrenderer loops y 0..255), so the browser renders empty sky. The surface must also stay
+  below the panel's `SEA_Y=62`+1 so shore scenes flood correctly (y=63 = exactly 1 above the
+  waterline). Generator settings apply only at world CREATION - changing them needs
+  `npm run server:reset` (which deletes every built plot; scenes reconstruct on next visit).
+  Switched 2026-07-14 ("underground caverns are unnecessary").
 - **Server version must be 1.20.1 - and 1.20.1 specifically, not just "any 1.20".** Two reasons:
   (1) the itzg image defaults to *latest* Minecraft; unpinned = bot connect mismatch. (2) prismarine-viewer
   supports 1.20.1 EXACTLY (its supported list jumps 1.20.1 -> 1.21.1); running 1.20.4 shifts block-state IDs
@@ -132,8 +143,10 @@ the `boot.steps` list, or it goes back to being invisible outside the terminal.
 - **The browser view must be bound to a bot that NEVER MOVES, or it renders a lie.**
   prismarine-viewer re-sends (unloads + reloads) chunk columns every time its bot crosses a
   chunk boundary, and it meshes chunk sections asynchronously in a worker. Race those two and
-  `worldrenderer.js` throws the finished geometry away - it re-checks `loadedChunks` when the
-  job returns - and NOTHING re-queues it, so the section stays frozen at whatever it last drew.
+  `worldrenderer.js` threw the finished geometry away - it re-checked `loadedChunks` when the
+  job returned - and NOTHING re-queued it, so the section stayed frozen at whatever it last drew.
+  (That throw-away path is patched out by `scripts/patch-viewer.js` as of 2026-07-14, but the
+  stationary camera remains the design: chunk churn still costs bandwidth and re-mesh work.)
   The view used to be bound to the lead worker, and workers teleport around the site constantly
   (`Worker.buildBlocks`): one cottage build measured **132 unload/reload cycles**, the sections
   holding the roof froze mid-build, and the browser showed a roofless house with the ridge beam
@@ -222,6 +235,20 @@ the `boot.steps` list, or it goes back to being invisible outside the terminal.
   than the chunk-freeze theory and was the second, longer-lived cause of the same "roofless house"
   symptom the camera bot fixed. Found 2026-07-13 by meshing one stair through the viewer's own
   mesher (planks: 24 vertices, stairs: 0).
+- **prismarine-viewer also DELETES a chunk's meshes the instant it slides out of the camera's
+  radius - which made the plot's perimeter blink at every build start - and this project patches
+  that too.** Every build start hops the camera bot one grid cell (`aimCamera`); the hop slides
+  the 16-chunk render radius, and one measured hop fired 17 `unloadChunk`s (tap the viewer's
+  socket to see them): a whole strip of shore/water/horizon vanished on the spot while the
+  leading edge streamed in over the next seconds. The same unload path is what made the
+  frozen-section bug possible (remove the old mesh -> notice the column unloaded -> return,
+  stranding a hole). `scripts/patch-viewer.js` now (a) keeps stale meshes when a column leaves
+  the radius - the world outside the active build site is static, so the last picture IS the
+  correct picture, and it is replaced the moment the column re-enters range - and (b) always
+  applies late-arriving geometry. Memory stays bounded (finite scene plots, revisited chunks).
+  Same patch mechanics as the stairs fix: idempotent, `postinstall` + `startViewer()` self-heal,
+  `npm test` fails if unpatched. Found 2026-07-14 (user report: "blocks flicker in and out
+  during builds - the perimeter").
 - **The crew builds in PARALLEL (role i starts at i*3000ms, ~10 blocks/s), so "a later role
   overwrites an earlier role's block" is a RACE, not a technique - and the earlier role usually
   wins.** The decorator reaches "its" wall coordinate at t≈6s while the mason lays that wall layer
