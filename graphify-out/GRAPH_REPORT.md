@@ -1,16 +1,16 @@
-# Graph Report - minecraft-agentic  (2026-07-12)
+# Graph Report - minecraft-agentic  (2026-07-13)
 
 ## Corpus Check
-- 41 files · ~183,993 words
+- 48 files · ~320,572 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 387 nodes · 636 edges · 29 communities (21 shown, 8 thin omitted)
-- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
+- 509 nodes · 902 edges · 32 communities (24 shown, 8 thin omitted)
+- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 1 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `2d4084b4`
+- Built from commit: `a9282de2`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -43,20 +43,25 @@
 - [[_COMMUNITY_Community 25|Community 25]]
 - [[_COMMUNITY_Community 27|Community 27]]
 - [[_COMMUNITY_Community 28|Community 28]]
+- [[_COMMUNITY_Community 29|Community 29]]
+- [[_COMMUNITY_Community 30|Community 30]]
+- [[_COMMUNITY_Community 32|Community 32]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `scripts` - 15 edges
-2. `Builder` - 15 edges
-3. `main()` - 14 edges
-4. `ensureServerUp()` - 14 edges
-5. `startViewer()` - 14 edges
-6. `requireMinecraftServer()` - 13 edges
-7. `isLiveProvider()` - 12 edges
-8. `Worker` - 12 edges
-9. `⛏️ Minecraft Agentic Builder` - 12 edges
-10. `buildScene()` - 11 edges
+1. `scripts` - 21 edges
+2. `buildScene()` - 19 edges
+3. `startViewer()` - 18 edges
+4. `ensureServerUp()` - 15 edges
+5. `Builder` - 15 edges
+6. `main()` - 14 edges
+7. `sleep()` - 14 edges
+8. `Crew` - 14 edges
+9. `requireMinecraftServer()` - 13 edges
+10. `⛏️ Minecraft Agentic Builder` - 13 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `startViewer()` --calls--> `patchViewer()`  [INFERRED]
+  src/viewer.js → scripts/patch-viewer.js
 - `main()` --calls--> `startViewer()`  [EXTRACTED]
   scripts/web.js → src/viewer.js
 - `buildCustom()` --calls--> `providerLabel()`  [EXTRACTED]
@@ -65,33 +70,31 @@
   scripts/play.js → src/library/index.js
 - `main()` --calls--> `detectProvider()`  [EXTRACTED]
   scripts/play.js → src/providers.js
-- `main()` --calls--> `isLiveProvider()`  [EXTRACTED]
-  scripts/play.js → src/providers.js
 
 ## Import Cycles
 - None detected.
 
-## Communities (29 total, 8 thin omitted)
+## Communities (32 total, 8 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.09
 Nodes (21): assignments, carpenter, decorator, landscaper, mason, buildOrder, blocks, task (+13 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.06
-Nodes (35): dependencies, @anthropic-ai/sdk, dotenv, @google/generative-ai, mineflayer, mineflayer-pathfinder, openai, prismarine-viewer (+27 more)
+Cohesion: 0.05
+Nodes (42): dependencies, @anthropic-ai/sdk, dotenv, @google/generative-ai, mineflayer, mineflayer-pathfinder, openai, prismarine-viewer (+34 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.14
-Nodes (13): 🔧 All the commands, Built by [Nobler Works](https://noblerworks.com/), ⚙️ Configuration, 🤝 Contributing, ❓ FAQ, 🏗️ How it works, 🎬 Making content with it, 🤖 Meet the crew (+5 more)
+Cohesion: 0.13
+Nodes (14): 🔧 All the commands, Built by [Nobler Works](https://noblerworks.com/), ⚙️ Configuration, 🤝 Contributing, ❓ FAQ, 🏗️ How it works, 🎬 Making content with it, 🤖 Meet the crew (+6 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.10
-Nodes (31): createBot(), waitForSpawn(), Crew, main(), sleep(), demo(), DEMO_BUILDS, sleep() (+23 more)
+Cohesion: 0.08
+Nodes (36): patchViewer(), require, createBot(), waitForSpawn(), Camera, main(), sleep(), demo() (+28 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.10
-Nodes (39): backdropSpots(), broadcast(), buildScene(), clearAllSites(), clients, decoBeach(), decoCherry(), decoDesert() (+31 more)
+Cohesion: 0.08
+Nodes (63): aimCamera(), assertLead(), backdropSpots(), boot, bootFailed(), broadcast(), buildArea(), buildScene() (+55 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.08
@@ -102,8 +105,8 @@ Cohesion: 0.17
 Nodes (7): envPath, examplePath, keyMatch, major, ok, root, todo
 
 ### Community 8 - "Community 8"
-Cohesion: 0.20
-Nodes (6): __dirname, listPlans(), loadPlan(), runOfflineDemo(), sleep(), Worker
+Cohesion: 0.12
+Nodes (13): __dirname, listPlans(), loadPlan(), runOfflineDemo(), sleep(), buildRoute(), walkLayer(), Worker (+5 more)
 
 ### Community 9 - "Community 9"
 Cohesion: 0.25
@@ -118,8 +121,8 @@ Cohesion: 0.33
 Nodes (5): For /graphify explain, For /graphify path, graphify reference: query, path, explain, Step 0 — Constrained query expansion (REQUIRED before traversal), Step 1 — Traversal
 
 ### Community 12 - "Community 12"
-Cohesion: 0.32
-Nodes (16): containerState(), ensureServerUp(), g(), mcBootedInLogs(), PORT, portOpen(), quiet(), r() (+8 more)
+Cohesion: 0.31
+Nodes (17): containerState(), ensureServerUp(), g(), mcBootedInLogs(), PORT, portOpen(), quiet(), r() (+9 more)
 
 ### Community 13 - "Community 13"
 Cohesion: 0.50
@@ -150,28 +153,40 @@ Cohesion: 0.12
 Nodes (30): getLibraryPlan(), listBuilds(), args, ask(), b(), buildCustom(), buildPreset(), c() (+22 more)
 
 ### Community 28 - "Community 28"
-Cohesion: 0.28
-Nodes (16): castle(), cottage(), _disc, discPoints(), finalize(), GENERATORS, lighthouse(), makeCanvas() (+8 more)
+Cohesion: 0.23
+Nodes (22): castle(), cottage(), _disc, discPoints(), finalize(), GENERATORS, lighthouse(), makeCanvas() (+14 more)
+
+### Community 29 - "Community 29"
+Cohesion: 0.11
+Nodes (14): bot, bundle, cam, centre, click(), grazing, left, low (+6 more)
+
+### Community 30 - "Community 30"
+Cohesion: 0.10
+Nodes (14): Crew, browserBlockAt(), byType, ChunkColumn, ckey(), columns, crew, events (+6 more)
+
+### Community 32 - "Community 32"
+Cohesion: 0.20
+Nodes (17): arg(), BUILD_SPEED, dateStamp(), main(), NAME, OUT_DIR, [OUT_W, OUT_H], panel() (+9 more)
 
 ## Knowledge Gaps
-- **163 isolated node(s):** `PreToolUse`, `allow`, `kiroAgent.configureMCP`, `name`, `version` (+158 more)
+- **205 isolated node(s):** `PreToolUse`, `allow`, `kiroAgent.configureMCP`, `name`, `version` (+200 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `startViewer()` connect `Community 3` to `Community 4`?**
-  _High betweenness centrality (0.033) - this node is a cross-community bridge._
-- **Why does `Builder` connect `Community 6` to `Community 3`?**
-  _High betweenness centrality (0.031) - this node is a cross-community bridge._
+- **Why does `startViewer()` connect `Community 3` to `Community 4`, `Community 30`?**
+  _High betweenness centrality (0.044) - this node is a cross-community bridge._
+- **Why does `Crew` connect `Community 30` to `Community 3`, `Community 4`?**
+  _High betweenness centrality (0.028) - this node is a cross-community bridge._
 - **What connects `PreToolUse`, `allow`, `kiroAgent.configureMCP` to the rest of the system?**
-  _163 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _205 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.09090909090909091 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**
-  _Cohesion score 0.05555555555555555 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.046511627906976744 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
-  _Cohesion score 0.14285714285714285 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.13333333333333333 - nodes in this community are weakly interconnected._
 - **Should `Community 3` be split into smaller, more focused modules?**
-  _Cohesion score 0.09863945578231292 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.08458646616541353 - nodes in this community are weakly interconnected._

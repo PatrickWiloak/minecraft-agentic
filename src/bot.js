@@ -13,6 +13,14 @@ export function createBot(options = {}) {
     // browser viewer renders every block correctly. (1.20.4 shifts block-state IDs
     // vs the viewer's 1.20.1 assets - stone walls render as beehives. Ask us how we know.)
     version: options.version || process.env.MC_VERSION || '1.20.1',
+    // Mineflayer drops the connection if the server hasn't sent a keepalive in 30s. That is
+    // a fine default for a survival bot and a bad one for us: a scene build fires thousands
+    // of /fill and /fillbiome commands, each rewriting and re-sending whole chunk columns,
+    // and a busy server stops servicing keepalives long before it stops working. The bot then
+    // "times out" against a perfectly healthy server, and because bot.chat() on a dead bot is
+    // a silent no-op, the rest of that scene's fills go nowhere. Be patient instead - a real
+    // dead server still errors the socket immediately.
+    checkTimeoutInterval: parseInt(process.env.MC_TIMEOUT || '120000', 10),
   });
 
   bot.loadPlugin(pathfinder);

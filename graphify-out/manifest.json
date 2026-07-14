@@ -10,8 +10,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1783786565.6373475,
-    "ast_hash": "2239c699b249848bd4258d8c70f30df3",
+    "mtime": 1783957559.88998,
+    "ast_hash": "af92d805001ed83b3da0e6d8bb9d2dd1",
     "semantic_hash": ""
   },
   "src/agent.js": {
@@ -20,8 +20,8 @@
     "semantic_hash": ""
   },
   "src/bot.js": {
-    "mtime": 1783781232.813352,
-    "ast_hash": "005cd0bb869c83bcdbcbdb4d7f4e46f7",
+    "mtime": 1783891434.5966334,
+    "ast_hash": "3d7176fb531cb49d945b293b3e53cfbd",
     "semantic_hash": ""
   },
   "src/builder.js": {
@@ -35,18 +35,18 @@
     "semantic_hash": ""
   },
   "src/crew.js": {
-    "mtime": 1783792793.6173518,
-    "ast_hash": "0212a79f5919fcf2b28ebd0fd2250a3f",
+    "mtime": 1783921678.2963414,
+    "ast_hash": "b203179bb08c9538cb0b9a0085d3c3f2",
     "semantic_hash": ""
   },
   "src/demo.js": {
-    "mtime": 1783734909.1334305,
-    "ast_hash": "cbd64adaba3baece2f6f43e7fcb86f20",
+    "mtime": 1783921804.3003402,
+    "ast_hash": "5b398b1fd96705f82c21f87a279b69f8",
     "semantic_hash": ""
   },
   "src/index.js": {
-    "mtime": 1783734925.8454306,
-    "ast_hash": "b965125973aee5382eaf8682f3cbd0a7",
+    "mtime": 1783921804.30834,
+    "ast_hash": "9b0a119fa7816beaa9bf7571a3f15039",
     "semantic_hash": ""
   },
   "src/multi-demo.js": {
@@ -65,8 +65,8 @@
     "semantic_hash": ""
   },
   "src/worker.js": {
-    "mtime": 1783792776.825351,
-    "ast_hash": "6e3a5f73212591a3df0c119816c7ba92",
+    "mtime": 1783921996.0963411,
+    "ast_hash": "35082a9385bdbd996c3d55ac1a004483",
     "semantic_hash": ""
   },
   ".claude/CLAUDE.md": {
@@ -120,33 +120,33 @@
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1783790969.073351,
-    "ast_hash": "d297c7c21a8bfa6dba4fa8fe0f4a55f3",
+    "mtime": 1783976019.5059948,
+    "ast_hash": "028b2b36fa21e0a3f675fcc3da02f1d5",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1783831921.1453538,
-    "ast_hash": "6b4a2b325086ad2b51da4ede54cfbd9b",
+    "mtime": 1783976019.5019948,
+    "ast_hash": "85cc0fabede720df04f85439f8bddc80",
     "semantic_hash": ""
   },
   "src/viewer.js": {
-    "mtime": 1783790592.4093535,
-    "ast_hash": "14173f842ab450e87c724e3f89453336",
+    "mtime": 1783957581.938,
+    "ast_hash": "3bd6a30a69bb642640dd5ddf672f22d9",
     "semantic_hash": ""
   },
   "TODO.md": {
-    "mtime": 1783832064.6573544,
-    "ast_hash": "cc8f54db30a1bcf53a5fb1a4a824d6dd",
+    "mtime": 1783975966.5499954,
+    "ast_hash": "7e01441136e6b227df9aaae8d8a9c1e9",
     "semantic_hash": ""
   },
   "docs/SETUP.md": {
-    "mtime": 1783787393.2293499,
-    "ast_hash": "c15399388e69f373db3ca4577a6b6957",
+    "mtime": 1783955468.473997,
+    "ast_hash": "814fd34e33d42b3d0c5681cf4241e223",
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
-    "mtime": 1783830095.2773514,
-    "ast_hash": "948f496ad66036666d824a7dd3c23459",
+    "mtime": 1783952370.5659935,
+    "ast_hash": "ec9f4b54af173113651043a93c53e429",
     "semantic_hash": ""
   },
   "scripts/setup.js": {
@@ -155,8 +155,8 @@
     "semantic_hash": ""
   },
   "src/e2e-test.js": {
-    "mtime": 1783734976.9054298,
-    "ast_hash": "8ed5c7a46001881c874b0cfe04252c88",
+    "mtime": 1783921804.3163402,
+    "ast_hash": "130c32a7c4d47da44294af371e9cc532",
     "semantic_hash": ""
   },
   "src/preflight.js": {
@@ -170,7 +170,7 @@
     "semantic_hash": ""
   },
   "docker/ops.json": {
-    "mtime": 1783790621.7053535,
+    "mtime": 1783950436.8139834,
     "ast_hash": "eb8c368d74dda529a83972b944570afd",
     "semantic_hash": ""
   },
@@ -190,13 +190,13 @@
     "semantic_hash": ""
   },
   "scripts/server.js": {
-    "mtime": 1783781217.989352,
-    "ast_hash": "6a73ab095fc46e38b6763187a7b887be",
+    "mtime": 1783922034.3323402,
+    "ast_hash": "1efd29a54b2f06f868dfd2c199f23a1b",
     "semantic_hash": ""
   },
   "src/library/index.js": {
-    "mtime": 1783781254.0133522,
-    "ast_hash": "0855a276fbf07bc28aa5d8040d467337",
+    "mtime": 1783971770.4779956,
+    "ast_hash": "a6df01a6bbf68fd97085a3b9c6819bd8",
     "semantic_hash": ""
   },
   "src/providers.js": {
@@ -204,24 +204,64 @@
     "ast_hash": "3e32e00cdb531f88c38fd16d255af024",
     "semantic_hash": ""
   },
-  "docs/media/crew-castle-timelapse-640x360-11JUL2026.webp": {
-    "mtime": 1783791061.557351,
-    "ast_hash": "e4222e957e7cb7c8a9f97010eea45a8e",
-    "semantic_hash": ""
-  },
   "scripts/web.js": {
-    "mtime": 1783831887.3253536,
-    "ast_hash": "093263ec3a36c64cd5cc1a09c2591ff1",
-    "semantic_hash": ""
-  },
-  "docs/media/web-control-panel-1360x800-11JUL2026.png": {
-    "mtime": 1783787307.0573525,
-    "ast_hash": "7b01b688a72ffc1c8b03aa89d0a8fce0",
+    "mtime": 1783973462.5939958,
+    "ast_hash": "0ce08a245be55178a5509c6915620d3d",
     "semantic_hash": ""
   },
   "nobler-works-banner.JPG": {
     "mtime": 1783831896.5413537,
     "ast_hash": "86081c5161ae73620ba3a0aa78b69fd6",
+    "semantic_hash": ""
+  },
+  "src/world.js": {
+    "mtime": 1783838348.9853556,
+    "ast_hash": "5f650efebf6eb6fcba94eaf262e74819",
+    "semantic_hash": ""
+  },
+  "test/pick-ground.test.mjs": {
+    "mtime": 1783952587.5459983,
+    "ast_hash": "f15200c89e871ab963a24279031baf56",
+    "semantic_hash": ""
+  },
+  "src/camera.js": {
+    "mtime": 1783921601.2643414,
+    "ast_hash": "e698f83ed43ce388c4a6f152e3a698a6",
+    "semantic_hash": ""
+  },
+  "test/viewer-sync.test.mjs": {
+    "mtime": 1783921944.4443417,
+    "ast_hash": "810d7f4b008af63625b6896c9b51bda3",
+    "semantic_hash": ""
+  },
+  "test/preset-audit.test.mjs": {
+    "mtime": 1783971783.9939961,
+    "ast_hash": "55f470c605bf10d76ed28f61c4473e4a",
+    "semantic_hash": ""
+  },
+  "docs/media/web-control-panel-1440x900-13JUL2026.png": {
+    "mtime": 1783955402.9659946,
+    "ast_hash": "e7d73dc886e5ebc1341abf3bb84152ed",
+    "semantic_hash": ""
+  },
+  "scripts/patch-viewer.js": {
+    "mtime": 1783957525.9459965,
+    "ast_hash": "f6b2b3e1f569646316f7c85ad282046f",
+    "semantic_hash": ""
+  },
+  "scripts/record-demo.mjs": {
+    "mtime": 1783975871.161995,
+    "ast_hash": "d778d9f5ec48350554d487bdd894629a",
+    "semantic_hash": ""
+  },
+  "docs/media/crew-castle-timelapse-1280x720-13JUL2026.mp4": {
+    "mtime": 1783974830.8459878,
+    "ast_hash": "fc36449aa76c9274ce62bf41bef7244c",
+    "semantic_hash": ""
+  },
+  "docs/media/crew-castle-timelapse-800x450-13JUL2026.webp": {
+    "mtime": 1783975871.1499949,
+    "ast_hash": "20e702ef2fc9b5a8c0ca6c50310d25bb",
     "semantic_hash": ""
   }
 }

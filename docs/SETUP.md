@@ -4,14 +4,19 @@
 
 ```bash
 npm install
-npm run play          # starts the server + runs the crew - open http://localhost:3000
+npm run web           # everything in one browser tab - opens http://localhost:8080 for you
 ```
 
-`npm run play` does everything: starts the Docker Minecraft server (first run downloads it and
-generates the world, ~1 min), waits for it, then shows a menu of curated builds - a castle, a
-wizard tower, a cottage, a lighthouse, or "surprise me" - **no API key needed**. Add a key
-(below - Gemini is free) and the same menu also accepts any prompt you type, e.g.
-`npm run play "a haunted mansion"`.
+`npm run web` does everything: starts the Docker Minecraft server (first run downloads it and
+generates the world, ~1 min), hires the crew, and opens your browser on the control panel - a
+prompt box, the curated presets, the scene chips, and the live 3D view, all on one URL. The page
+opens immediately on a loading screen that shows each startup step as it completes, so you can
+watch it come up.
+
+Prefer the terminal? `npm run play` gives you the same builds from a menu and a read-only 3D view
+at `http://localhost:3000`. Either way you get the curated builds - a castle, a wizard tower, a
+cottage, a lighthouse, or "surprise me" - with **no API key needed**. Add a key (below - Gemini is
+free) and the prompt box (or `npm run play "a haunted mansion"`) accepts any idea you type.
 
 You do **not** need to own Minecraft to watch in the browser, and you don't need the Docker
 Compose plugin - `npm run play` uses plain `docker`.
@@ -209,15 +214,22 @@ docker run -d -p 25565:25565 \
 ## Commands
 
 ```bash
+npm run web                            # browser control panel at http://localhost:8080 (prompt + watch)
 npm run play                           # server up + build menu (presets free, no key)
 npm run play "a wizard tower"          # skip the menu - AI designs it (needs key)
 npm run play "a castle" --sequential   # one bot at a time; --no-viewer also works
-npm run web                            # browser control panel at http://localhost:8080 (prompt + watch)
 
 npm run server / server:stop / server:reset / server:logs   # manage the server yourself
+npm run server:recreate                # rebuild the container, KEEP the world - the only way a
+                                       #   changed server setting (view distance, memory) takes effect
 npm run demo "a watchtower"            # single bot instead of the crew (needs key)
 npm start                              # interactive - type prompts one by one
 npm run offline                        # no Docker/server/key - just prints a sample plan
+
+npm test                               # click-to-place + preset integrity (no browser, no server)
+npm run test:viewer                    # does the browser see what the crew built? (needs a server)
+npm run replay                         # crew builds from a cached plan (needs a server, no key)
+npm run e2e                            # single-bot smoke test (needs a server, no key)
 ```
 
 When a build runs you'll see a banner - open the URL and drag to orbit, scroll to zoom:

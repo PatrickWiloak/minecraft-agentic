@@ -102,15 +102,21 @@ for (const level of ['log', 'warn', 'error']) {
 // themed surface, and tasteful backdrop decoration around the edges - leaving the
 // centre flat and clear to build on. `ground` = the surface block (also used to
 // level individual build sites); `support` = the non-gravity block that encases the
-// base; `decorate` = optional edge dressing (water, trees, peaks...).
+// base; `biome` = set with /fillbiome over the whole plot - REQUIRED, because grass
+// colour, foliage colour, sky and water are all biome TINTS, not block properties:
+// grass_block in a desert renders dry olive, and a biome seam mid-platform shows up
+// as a patch of a different green. `decorate` = optional edge dressing. `shore` = taper the
+// platform's outer band down into water instead of ending it in a cliff (see buildShore).
+// `waterBiome` = a second biome painted over the shore water only: water colour is a biome
+// tint too, so this is what turns a flat blue moat into a turquoise tropical sea.
 const SCENES = {
-  spawn:     { label: 'Plains',      ground: 'grass_block', support: 'stone',     decorate: decoPlains },
-  beach:     { label: 'Beach',       ground: 'sand',        support: 'sandstone', decorate: decoBeach },
-  desert:    { label: 'Desert',      ground: 'sand',        support: 'sandstone', decorate: decoDesert },
-  mountains: { label: 'Mountains',   ground: 'grass_block', support: 'stone',     decorate: decoMountains },
-  snowy:     { label: 'Snowy',       ground: 'snow_block',  support: 'stone',     decorate: decoSnowy },
-  jungle:    { label: 'Jungle',      ground: 'grass_block', support: 'stone',     decorate: decoJungle },
-  cherry:    { label: 'Cherry Grove', ground: 'grass_block', support: 'stone',    decorate: decoCherry },
+  spawn:     { label: 'Plains',      ground: 'grass_block', support: 'stone',     biome: 'plains',        decorate: decoPlains },
+  beach:     { label: 'Beach',       ground: 'sand',        support: 'sandstone', biome: 'beach',         decorate: decoBeach, shore: true, waterBiome: 'warm_ocean' },
+  desert:    { label: 'Desert',      ground: 'sand',        support: 'sandstone', biome: 'desert',        decorate: decoDesert },
+  mountains: { label: 'Mountains',   ground: 'grass_block', support: 'stone',     biome: 'meadow',        decorate: decoMountains },
+  snowy:     { label: 'Snowy',       ground: 'snow_block',  support: 'stone',     biome: 'snowy_plains',  decorate: decoSnowy },
+  jungle:    { label: 'Jungle',      ground: 'grass_block', support: 'stone',     biome: 'jungle',        decorate: decoJungle },
+  cherry:    { label: 'Cherry Grove', ground: 'grass_block', support: 'stone',    biome: 'cherry_grove',  decorate: decoCherry },
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -121,6 +127,33 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // clearing regardless of the natural terrain it replaces.
 const STAGE_Y = 72;
 
+// Vanilla sea level: the topmost water block in an ocean is y=62 (y=63 is the first air).
+// A `shore` scene's apron is cut to exactly this level, so a plot that happens to land in a
+// real ocean merges with it seamlessly instead of leaving a one-block seam of flowing water.
+const SEA_Y = 62;
+// The shoreline. Without it a scene is a solid rectangular prism - a table of sand ending in
+// a 9-block cliff over the sea, which is what gives away that it's a constructed platform.
+// A `shore` scene instead steps its outer band down 1 block every SHORE_RUN blocks until it
+// is SHORE_DEPTH under the waterline, and floods everything below. 13 steps x 3 = a 39-block
+// apron: wide enough to read as a gradual beach, narrow enough that the platform's flat
+// interior - and the whole 3x3 build grid - is untouched.
+const SHORE_RUN = 3;
+const SHORE_DEPTH = 4;
+const SHORE_STEPS = (STAGE_Y - 1) - (SEA_Y - SHORE_DEPTH);   // 71 -> 58
+const SHORE_W = SHORE_STEPS * SHORE_RUN;
+
+// A distinctive block buried well under each finished plot (below the support slab, so it
+// is never visible), stamped with the layout that produced it. Changing this string forces
+// every cached scene to rebuild - the block-signature probe alone can't tell "built by the
+// current layout" from "built by an older, smaller one", so bump it whenever the geometry,
+// biome pass or decoration changes materially.
+const SCENE_STAMP = 'note_block';   // v6: + spaced cacti, peaks clamped to the platform
+
+// The "build here" marker: a one-block-wide outline of the next build's footprint, laid
+// flush into the surface so it reads from any angle in the viewer. It sits exactly on the
+// footprint levelSite() clears, so starting the build erases it for free.
+const MARKER_BLOCK = 'sea_lantern';
+
 // --- build state ----------------------------------------------------------------
 const state = {
   provider: detectProvider(),
@@ -129,21 +162,69 @@ const state = {
   busy: false,
   phase: 'idle',            // idle | planning | building | clearing | traveling | done | error
   last: null,               // { name, blocks, prompt }
-  buildCount: 0,
   background: 'spawn',
   builtScenes: new Set(),   // scenes constructed this session (or detected pre-built)
-  sceneBuildCounts: {},     // per-scene build-grid position, so each plot keeps its own gallery
+  // Where every build on each plot actually went. Tracked as real origins, not a count:
+  // once a build can be hand-placed anywhere, "site N of the grid" no longer describes it,
+  // and "Clear ground" has to bulldoze the spots the crew REALLY used.
+  sceneSites: {},           // scene id -> [{x,y,z}]
+  placement: null,          // the hand-picked origin for the next build (null = next grid spot)
+  marker: null,             // { o, ground } - the outline currently drawn on the ground
+  sceneNonce: 0,            // bumped whenever a scene is (re)built, so the viewer re-frames
+                            // even when the scene NAME didn't change (a rebuild in place)
 };
+// Every build origin on the CURRENT plot, in the order they were built.
+function sites() {
+  return (state.sceneSites[state.background] ||= []);
+}
 function setPhase(phase, extra = {}) {
   state.phase = phase;
   Object.assign(state, extra);
   broadcast({ type: 'status', ...publicState() });
 }
+
+// --- boot progress ----------------------------------------------------------------
+// Startup (server -> crew -> viewer) takes ~30-60s and USED to run entirely before the
+// web server listened, so the only place you could watch it was this terminal - the
+// browser popped open on an already-finished panel. Now main() listens first and the
+// page opens immediately on a boot screen that renders these steps (plus the live log
+// stream, which already fans out over SSE) as they complete. `boot` rides along inside
+// publicState() rather than in a separate event so a browser that connects late, or
+// reloads mid-boot, resolves to the right screen from a plain GET /status.
+const boot = {
+  done: false,
+  error: null,
+  steps: [
+    { id: 'server', label: 'Waking the Minecraft server', state: 'pending' },
+    { id: 'crew', label: 'Assembling the build crew', state: 'pending' },
+    { id: 'viewer', label: 'Starting the live 3D view', state: 'pending' },
+  ],
+};
+let viewerReady = false;   // the page holds the iframe's src until this is true (see PAGE)
+function setBoot(id, st) {
+  const step = boot.steps.find((s) => s.id === id);
+  if (step) step.state = st;
+  broadcast({ type: 'status', ...publicState() });
+}
+function bootFailed(message) {
+  boot.error = message;
+  for (const s of boot.steps) if (s.state === 'active') s.state = 'failed';
+  broadcast({ type: 'status', ...publicState() });
+}
+
 function publicState() {
   return {
     provider: state.provider, live: state.live, providerLabel: state.providerLabel,
-    busy: state.busy, phase: state.phase, last: state.last, built: state.buildCount,
-    background: state.background,
+    busy: state.busy, phase: state.phase, last: state.last, built: sites().length,
+    // Whether "Clear ground" has anything to do. NOT `built > 0`: that only counts builds made
+    // in THIS process, and the plot's builds outlive it (the world is on disk, sceneSites isn't),
+    // so a plot full of yesterday's houses reported 0 and greyed the button out for good.
+    // Once the plot exists, it can be cleared - on an empty one that just re-levels bare ground.
+    clearable: state.builtScenes.has(state.background),
+    background: state.background, sceneNonce: state.sceneNonce,
+    placement: state.placement && { x: state.placement.x, z: state.placement.z },
+    surfaceY: STAGE_Y,   // the y the page raycasts a click against (top face of the ground)
+    boot,                // { done, error, steps[] } - drives the loading screen
   };
 }
 
@@ -155,14 +236,59 @@ async function formation(o) {
   await Promise.all(crew.activeWorkers.map((w, i) => w.teleportTo(o.x - 2 + i * 8, o.y, o.z - 6)));
 }
 
-// A tidy grid of build sites so successive builds don't overlap. Kept to 3x3 so
-// every site lands on the constructed scene platform (which is sized to match).
+// Point the camera at the 40x40 cell starting at `o` - the site a build is about to go up on.
+//
+// The browser's orbit camera anchors on the camera bot: it looks AT that bot's position from 20
+// blocks above and 20 south of it (prismarine-viewer's lib/index.js sets exactly that offset on
+// the first position it receives). So wherever this bot stands is the centre of the shot, and
+// parking it on the corner of the PLOT - which is what this used to do - framed a mostly empty
+// platform with the build tucked away at the edge. Standing it in the middle of the cell instead
+// puts the build in the middle of the picture, and the eye ends up in open air over the site's
+// south edge rather than inside whatever gets built.
+//
+// Only ever called BETWEEN builds (scene switch, and just before a build starts). Moving the
+// camera is the one thing that makes the viewer drop geometry, so it must never happen while
+// the crew is placing blocks - see src/camera.js.
+async function aimCamera(o) {
+  if (!crew?.camera?.alive) return;
+  await crew.camera.park(lead(), { x: o.x + 16, y: o.y + 2, z: o.z + 16 });
+}
+
+// Where the NEXT build goes: the spot the user staked out, or - if they haven't picked
+// one - the next free cell of a tidy 3x3 grid, so successive builds don't overlap.
+//
+// "Free" is judged by the WORLD, not by this process's memory. It used to be a session
+// counter (`sites().length`), and the world outlives the process: restart the panel over a
+// plot with builds on it and the counter said zero, so the next builds levelSite()'d
+// themselves straight through whatever was standing on the first cells - four verified
+// presets bulldozed before anyone noticed (2026-07-13). Same lesson as "Clear ground":
+// the Minecraft world is on disk and is the source of truth; session state is a cache.
+function slotOccupied(bot, o) {
+  // sample the cell's core (builds live in 0..31; the levelling margins overlap neighbors)
+  for (let dx = 0; dx <= 31; dx += 3)
+    for (let dz = 0; dz <= 31; dz += 3)
+      for (let dy = 0; dy <= 24; dy += 2)
+        if (bot.blockAt(new Vec3(o.x + dx, o.y + dy, o.z + dz))?.name !== 'air') return true;
+  return false;
+}
 function nextOrigin() {
-  const col = state.buildCount % 3, row = Math.floor(state.buildCount / 3) % 3;
-  return { x: baseOrigin.x + col * 40, y: baseOrigin.y, z: baseOrigin.z + row * 40 };
+  if (state.placement) return { ...state.placement };
+  const bot = crew?.activeWorkers?.[0]?.bot;
+  if (!bot) throw new Error('No crew connected - cannot find a free build site.');
+  for (let n = 0; n < 9; n++) {
+    const o = { x: baseOrigin.x + (n % 3) * 40, y: baseOrigin.y, z: baseOrigin.z + Math.floor(n / 3) * 40 };
+    if (!slotOccupied(bot, o)) return o;
+  }
+  // Every cell has something on it. The old behavior wrapped the rotation and built OVER
+  // cell 0 - silently demolishing whatever stood there. Refusing is the only safe answer.
+  throw new Error('All 9 grid sites are occupied - use "Clear ground" or "Pick a spot".');
 }
 
 async function runBuild({ prompt, preset }) {
+  // A request can arrive in the gap between crew assembly and the scene anchoring
+  // (baseOrigin isn't set until then) - building would crash on nextOrigin and, worse,
+  // could land on an unanchored origin. Refuse until boot declares itself done.
+  if (!boot.done || !baseOrigin) throw new Error('The panel is still booting - try again in a moment.');
   if (state.busy) throw new Error('A build is already running.');
   state.busy = true;
   const label = preset ? `preset:${preset}` : prompt;
@@ -176,20 +302,35 @@ async function runBuild({ prompt, preset }) {
   if (preset) { process.env.LLM_PROVIDER = 'library'; process.env.LIBRARY_BUILD = preset; }
 
   try {
+    await ensureCrew();
     for (const w of crew.activeWorkers) w.blocksPlaced = 0;   // per-build count
     const origin = nextOrigin();
+    // Remember the site BEFORE building, not after: a build that fails half-way still left
+    // debris there, and "Clear ground" has to know about it.
+    sites().push(origin);
+    // Consume the hand-picked spot - the next build falls back to the grid unless the user
+    // picks again. levelSite() re-lays this exact footprint, so it erases the marker for us.
+    state.placement = null;
+    state.marker = null;
     // Flatten a platform first so the build sits level on any terrain (mountainside,
     // beach dunes...). Teleport the lead there first - /fill needs loaded chunks.
     const lead = crew.activeWorkers[0];
     await lead.teleportTo(origin.x + 16, origin.y, origin.z + 16);
     await levelSite(lead.bot, origin);
+    // Look at the site we're about to build on. The site moves (the 3x3 grid, or wherever the
+    // user clicked), so a camera parked once per plot ends up watching an empty corner of it.
+    // NOW is the only safe moment to move it: the ground is levelled, nothing is being placed.
+    await aimCamera(origin);
     setPhase('building');
-    const plan = await crew.executeBuild(prompt || 'a surprise build', { origin });
+    // aimCamera: false - the camera is parked (just above), and must NOT move again while
+    // the crew is placing blocks (see aimCamera above / src/camera.js).
+    const plan = await crew.executeBuild(prompt || 'a surprise build', { origin, aimCamera: false });
     const blocks = crew.activeWorkers.reduce((s, w) => s + w.blocksPlaced, 0);
-    state.buildCount++;
-    state.sceneBuildCounts[state.background] = state.buildCount;   // remember this plot's gallery size
+    // executeBuild re-reads the world and counts what never landed. Say so out loud rather
+    // than reporting a block count that only says how many commands we fired.
+    const miss = plan.verified?.missing || 0;
     setPhase('done', { last: { name: plan.name, blocks, prompt: label } });
-    console.log(`[Web] Done: "${plan.name}" (${blocks} blocks)`);
+    console.log(`[Web] Done: "${plan.name}" (${blocks} blocks${miss ? `, ${miss} MISSING` : ', all verified in-world'})`);
   } catch (err) {
     console.error(`[Web] Build failed: ${err.message}`);
     setPhase('error', { last: { name: 'Build failed', blocks: 0, prompt: err.message } });
@@ -209,10 +350,26 @@ function groundBlock() {
   return (SCENES[state.background] || {}).ground || 'grass_block';
 }
 
-// The scene platform spans the 3x3 build grid (sites at +0/+40/+80 from the anchor,
-// each up to +39) plus a decorative margin.
+// The scene platform. Sized off the VIEWER's render distance, not the build grid:
+// prismarine-viewer draws 6 chunks (~96 blocks) around the bot, so unless the platform
+// reaches at least that far in every direction from wherever a bot stands, the natural
+// world shows past its edge - which is why Plains looked like a green rug dropped in a
+// desert. Bots idle near o..o+22 and roam the grid out to ~o+120, so the platform has to
+// cover o-96 .. o+216 at minimum; these bounds clear that with margin.
 function sceneBounds(o) {
-  return { x0: o.x - 16, x1: o.x + 128, z0: o.z - 16, z1: o.z + 128 };
+  return { x0: o.x - 112, x1: o.x + 224, z0: o.z - 112, z1: o.z + 224 };   // 337x337
+}
+// The build grid + a margin - decoration must stay OUT of this so builds land clear.
+function isInBuildArea(o, x, z) {
+  return x > o.x - 24 && x < o.x + 136 && z > o.z - 24 && z < o.z + 136;
+}
+// A hand-picked build origin is clamped to here: the same flat, decoration-free zone the
+// auto grid uses, with room for levelSite's 48x48 footprint (origin-8 .. origin+39) to fit
+// inside it. Keeping placement in this box also keeps the marker outline away from the
+// isSceneBuilt probe points, which live outside the build area on purpose.
+function clampPlacement(o, x, z) {
+  const cl = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
+  return { x: cl(x - 16, o.x - 12, o.x + 93), y: o.y, z: cl(z - 16, o.z - 12, o.z + 93) };
 }
 
 // Each scene lives on its OWN permanent plot, laid out in a row from the world
@@ -223,47 +380,191 @@ function plotAnchor(id) {
   return { x: SPAWN.x + i * 320, y: STAGE_Y, z: SPAWN.z };
 }
 
-// Has this plot already been constructed (this session or a previous one)? Signature
-// check that natural terrain won't match: the themed ground sits at EXACTLY o.y-1
-// with air just above, over the encasing support block. Waits for the plot's chunk
-// to stream in first (a freshly-teleported bot reads null until it loads), so a
-// scene built in a PRIOR session is still recognised on restart.
+// Has this plot already been constructed (this session or a previous one)? Signature check
+// that natural terrain won't match: the themed ground sits at EXACTLY o.y-1 over the
+// encasing support block, out to a corner only the current wide layout reaches, over a
+// buried layout stamp.
+//
+// CRITICAL: every probe point must sit OUTSIDE the build area. Probing the build grid (the
+// obvious choice - it's right at the origin) means the user's own castle answers the probe:
+// the ground there is no longer bare, so the scene reads as "not built" and gets rebuilt
+// from scratch, destroying every build on the plot. Probes also stay clear of the shore
+// apron, the snowy pond and anything decoration writes at o.y-1.
+//
+// Waits for the plot's chunks to stream in first. The points sit in DIFFERENT chunks, and
+// an unloaded chunk reads `null` - indistinguishable from "not built" - so judging before
+// they all arrive needlessly rebuilds a perfectly good plot.
 async function isSceneBuilt(bot, o, sc) {
-  const at = (y) => { try { const b = bot.blockAt(new Vec3(o.x + 20, y, o.z + 20)); return b && b.name; } catch { return null; } };
-  for (let i = 0; i < 20; i++) {          // up to ~5s for the chunk to load
-    if (at(o.y - 1) !== null) break;
+  const at = (dx, y, dz) => { try { const b = bot.blockAt(new Vec3(o.x + dx, y, o.z + dz)); return b && b.name; } catch { return null; } };
+  const points = [[-60, o.y - 1, -60], [-60, o.y - 3, -60], [170, o.y - 1, -60], [0, o.y - 30, 0]];
+  for (let i = 0; i < 40; i++) {                       // up to ~10s
+    if (points.every(([dx, y, dz]) => at(dx, y, dz) !== null)) break;
     await sleep(250);
   }
-  return at(o.y) === 'air' && at(o.y - 1) === sc.ground && at(o.y - 3) === sc.support;
+  if (points.some(([dx, y, dz]) => at(dx, y, dz) === null)) return false;   // still can't see it - rebuild
+
+  const core = at(-60, o.y - 1, -60) === sc.ground && at(-60, o.y - 3, -60) === sc.support;
+  const wide = at(170, o.y - 1, -60) === sc.ground;   // only the current wide platform reaches here
+  const stamped = at(0, o.y - 30, 0) === SCENE_STAMP;
+  return core && wide && stamped;
 }
 
-// /fill caps at 32768 blocks per command. Tile any region into <=32^3 boxes so a
-// single logical fill can be arbitrarily large. The small pause keeps us under the
-// server's chat/command rate limit (too fast -> "kicked for spamming"); 45ms (~22
-// cmd/s) tests clean and is ~2.5x faster than the old conservative 110ms.
+// /fill caps at 32768 blocks per command, so a big region has to go out as several. Split
+// on VOLUME (halve the longest axis until it fits) rather than tiling into 32^3 cubes: a
+// long thin box like a shore ring (3 x 1 x 289 = 867 blocks) is then a single command
+// instead of ten. The small pause keeps us under the server's chat/command rate limit (too
+// fast -> "kicked for spamming"); 45ms (~22 cmd/s) tests clean.
+const FILL_CAP = 32768;
+
+// The tripwire for the silent-no-op failure mode. Every command below leaves as a chat message
+// from the lead bot, and mineflayer discards chat from a bot that has disconnected WITHOUT
+// throwing - so a lead that drops half way through a scene lets the remaining hundreds of fills
+// evaporate, and the scene reports "ready" with half a platform. Checking liveness before each
+// command turns that into a loud error, which buildScene retries.
+function assertLead() {
+  const w = crew && crew.activeWorkers && crew.activeWorkers[0];
+  if (!w || !w.alive) throw new Error('the lead bot dropped - its commands would go nowhere');
+}
+
 async function fillRegion(bot, x0, y0, z0, x1, y1, z1, block) {
-  for (let x = x0; x <= x1; x += 32)
-    for (let z = z0; z <= z1; z += 32)
-      for (let y = y0; y <= y1; y += 32) {
-        bot.chat(`/fill ${x} ${y} ${z} ${Math.min(x + 31, x1)} ${Math.min(y + 31, y1)} ${Math.min(z + 31, z1)} minecraft:${block}`);
-        await sleep(45);
-      }
+  assertLead();
+  const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+  if ((dx + 1) * (dy + 1) * (dz + 1) > FILL_CAP) {
+    if (dx >= dy && dx >= dz) {
+      const m = x0 + (dx >> 1);
+      await fillRegion(bot, x0, y0, z0, m, y1, z1, block);
+      return fillRegion(bot, m + 1, y0, z0, x1, y1, z1, block);
+    }
+    if (dz >= dy) {
+      const m = z0 + (dz >> 1);
+      await fillRegion(bot, x0, y0, z0, x1, y1, m, block);
+      return fillRegion(bot, x0, y0, m + 1, x1, y1, z1, block);
+    }
+    const m = y0 + (dy >> 1);
+    await fillRegion(bot, x0, y0, z0, x1, m, z1, block);
+    return fillRegion(bot, x0, m + 1, z0, x1, y1, z1, block);
+  }
+  bot.chat(`/fill ${x0} ${y0} ${z0} ${x1} ${y1} ${z1} minecraft:${block}`);
+  await sleep(45);
+}
+
+// The four strips of a rectangular ring `inset` blocks in from the platform edge and
+// `thick` blocks wide. The end strips take the corners, so the strips never overlap.
+function frameStrips(b, inset, thick) {
+  const x0 = b.x0 + inset, x1 = b.x1 - inset, z0 = b.z0 + inset, z1 = b.z1 - inset;
+  return [
+    { x0, x1, z0, z1: z0 + thick - 1 },
+    { x0, x1, z0: z1 - thick + 1, z1 },
+    { x0, x1: x0 + thick - 1, z0: z0 + thick, z1: z1 - thick },
+    { x0: x1 - thick + 1, x1, z0: z0 + thick, z1: z1 - thick },
+  ];
+}
+
+// Cut a shoreline into the platform's outer band: carve the band away, then re-lay it as a
+// staircase running from the lagoon floor back up to the surface, flooding every step that
+// sits under the waterline. The result reads as a beach sloping into the sea from every side.
+//
+// Each step is filled SOLID from the lagoon floor up to its own height, not just capped with
+// a one-block shelf. A shelf is what the first version laid, and it does not survive contact
+// with the world: sand is a GRAVITY block, and the step outside it was carved down to the
+// floor, so every shelf was a slab of sand hanging over air. It fell the instant it was
+// placed, water poured into the gap, and the beach came out full of holes.
+async function buildShore(bot, o, b, sc) {
+  const surfaceY = o.y - 1;
+  const floorY = SEA_Y - SHORE_DEPTH;
+  for (const r of frameStrips(b, 0, SHORE_W))                                // carve the whole apron out
+    await fillRegion(bot, r.x0, floorY + 1, r.z0, r.x1, surfaceY, r.z1, 'air');
+  for (let step = 0; step < SHORE_STEPS; step++) {                             // outermost (deepest) step first
+    const y = floorY + step;
+    for (const r of frameStrips(b, step * SHORE_RUN, SHORE_RUN)) {
+      await fillRegion(bot, r.x0, floorY, r.z0, r.x1, y, r.z1, sc.ground);     // solid, all the way down
+      if (y < SEA_Y) await fillRegion(bot, r.x0, y + 1, r.z0, r.x1, SEA_Y, r.z1, 'water');
+    }
+  }
+}
+
+// Repaint the plot's BIOME (1.19.4+ /fillbiome). This is what actually makes a scene
+// look like its theme: grass/foliage colour, sky, fog and water are biome tints, so
+// grass_block in a desert renders dry olive no matter what block you place. Also kills
+// the patchwork of different greens you get when a biome seam crosses the platform.
+// /fillbiome enforces the SAME 32768-block cap as /fill, so it has to be split on volume
+// too. Tiling it naively at 32x32 over the platform's full height was 32*32*66 = 67k per
+// command: the server rejected 4 out of every 5 of them and only the thin edge strips
+// landed, which looks exactly like "the biome pass ran" while the middle stayed desert.
+async function fillBiome(bot, x0, y0, z0, x1, y1, z1, biome) {
+  assertLead();
+  const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+  if ((dx + 1) * (dy + 1) * (dz + 1) > FILL_CAP) {
+    if (dx >= dy && dx >= dz) {
+      const m = x0 + (dx >> 1);
+      await fillBiome(bot, x0, y0, z0, m, y1, z1, biome);
+      return fillBiome(bot, m + 1, y0, z0, x1, y1, z1, biome);
+    }
+    if (dz >= dy) {
+      const m = z0 + (dz >> 1);
+      await fillBiome(bot, x0, y0, z0, x1, y1, m, biome);
+      return fillBiome(bot, x0, y0, m + 1, x1, y1, z1, biome);
+    }
+    const m = y0 + (dy >> 1);
+    await fillBiome(bot, x0, y0, z0, x1, m, z1, biome);
+    return fillBiome(bot, x0, m + 1, z0, x1, y1, z1, biome);
+  }
+  bot.chat(`/fillbiome ${x0} ${y0} ${z0} ${x1} ${y1} ${z1} minecraft:${biome}`);
+  await sleep(45);
+}
+
+// /fillbiome updates the biome on the SERVER but does not re-send the chunks to clients
+// that already have them. The crew bots connected long before the scene was painted, so
+// their world - and the viewer, which renders from the bot's world, not from the server -
+// keeps the OLD biome. That's why a plains platform still rendered desert-olive: right
+// blocks, stale tint. Teleporting the crew clear of the server's view distance and back
+// forces those chunks to unload and be re-sent, biome and all.
+async function refreshChunks(o) {
+  const biomeAt = () => { try { return lead().blockAt(new Vec3(o.x + 20, o.y - 1, o.z + 20))?.biome?.id; } catch { return null; } };
+  const before = biomeAt();
+  // The CAMERA has to make this trip too, not just the crew: the browser renders from the
+  // camera's copy of the world, so refreshing everyone else's and leaving the camera behind
+  // would fix the bots' biome and change nothing about the picture.
+  await Promise.all(crew.activeWorkers.map((w) => w.teleportTo(o.x, o.y + 60, o.z - 700)));
+  if (crew.camera?.alive) await crew.camera.park(lead(), { x: o.x, y: o.y + 60, z: o.z - 700 });
+  await sleep(2500);
+  await formation(o);
+  await aimCamera(o);
+  await sleep(2500);
+  console.log(`[Web] Chunks refreshed - bot-side biome ${before} -> ${biomeAt()}`);
+}
+function lead() { return crew.activeWorkers[0].bot; }
+
+// Every /fill, /setblock and /tp in this file goes out as a CHAT COMMAND from the lead bot,
+// and `bot.chat()` on a disconnected bot is a silent no-op - it doesn't throw, it just does
+// nothing. So a lead that dropped (a duplicate login, a timeout) makes a scene "build" with
+// no blocks placed and a marker that never appears, with a clean log and no error anywhere.
+// crew.ensureAlive() reconnects anyone who fell off; call it before issuing ANY command.
+// (crew.executeBuild does this itself, so only the paths that bypass it need it.)
+async function ensureCrew() {
+  await crew.ensureAlive();
 }
 
 // --- scene decoration -------------------------------------------------------------
-// All decoration lives in a BACKDROP band on the far edges of the platform, so the
-// 3x3 build grid in the near corner (o .. o+119) stays flat and clear.
+// Decoration rings the platform, everywhere OUTSIDE the build area, so the 3x3 build
+// grid in the near corner (o .. o+119) stays flat and clear.
 const rnd = (a, b) => a + Math.random() * (b - a);
 const ri = (a, b) => Math.round(rnd(a, b));
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-function put(bot, x, y, z, block) { bot.chat(`/setblock ${x} ${y} ${z} minecraft:${block}`); }
+function put(bot, x, y, z, block) { assertLead(); bot.chat(`/setblock ${x} ${y} ${z} minecraft:${block}`); }
 
-// Random spots along the far +x and +z edges (the backdrop), clear of the build grid.
-function backdropSpots(o, b, n) {
+// Random spots anywhere on the platform EXCEPT the build area - decoration rings the
+// whole scene (so it reads as a real landscape, not a strip along one edge) while the
+// build grid stays flat and clear. `margin` keeps a decoration's FOOTPRINT on the
+// platform (a 10-wide mountain picked 6 from the edge juts 4 blocks into thin air);
+// `avoid` rejects spots a scene has already claimed for something else, like a pond.
+function backdropSpots(o, b, n, { margin = 6, avoid } = {}) {
   const spots = [];
-  for (let i = 0; i < n; i++) {
-    if (Math.random() < 0.5) spots.push([ri(b.x0 + 6, b.x1 - 6), ri(o.z + 100, b.z1 - 4)]);
-    else spots.push([ri(o.x + 100, b.x1 - 4), ri(b.z0 + 6, b.z1 - 6)]);
+  for (let i = 0; i < n * 40 && spots.length < n; i++) {
+    const x = ri(b.x0 + margin, b.x1 - margin), z = ri(b.z0 + margin, b.z1 - margin);
+    if (isInBuildArea(o, x, z)) continue;
+    if (avoid && avoid(x, z)) continue;
+    spots.push([x, z]);
   }
   return spots;
 }
@@ -280,51 +581,89 @@ async function placeTree(bot, x, y, z, log, leaf, h = 5) {
   await sleep(40);
 }
 
-async function scatterTrees(bot, o, b, log, leaf, n = 9) {
-  for (const [x, z] of backdropSpots(o, b, n)) await placeTree(bot, x, o.y, z, log, leaf, ri(4, 6));
+async function scatterTrees(bot, o, b, log, leaf, n = 9, opts = {}) {
+  for (const [x, z] of backdropSpots(o, b, n, opts)) await placeTree(bot, x, o.y, z, log, leaf, ri(4, 6));
 }
 
 async function decoPlains(bot, o, b) {
-  await scatterTrees(bot, o, b, 'oak_log', 'oak_leaves', 8);
-  for (const [x, z] of backdropSpots(o, b, 18)) put(bot, x, o.y, z, pick(['poppy', 'dandelion', 'cornflower', 'oxeye_daisy']));
-}
-async function decoJungle(bot, o, b) {
-  await scatterTrees(bot, o, b, 'jungle_log', 'jungle_leaves', 11);
-}
-async function decoCherry(bot, o, b) {
-  await scatterTrees(bot, o, b, 'cherry_log', 'cherry_leaves', 11);
-  for (const [x, z] of backdropSpots(o, b, 24)) put(bot, x, o.y, z, 'pink_petals');
-}
-async function decoDesert(bot, o, b) {
-  for (const [x, z] of backdropSpots(o, b, 12)) {
-    const h = ri(2, 4);
-    for (let k = 0; k < h; k++) put(bot, x, o.y + k, z, 'cactus');   // flat sand + spacing = cactus survives
-  }
-  for (const [x, z] of backdropSpots(o, b, 10)) put(bot, x, o.y, z, 'dead_bush');
+  await scatterTrees(bot, o, b, 'oak_log', 'oak_leaves', 16);
+  for (const [x, z] of backdropSpots(o, b, 90)) put(bot, x, o.y, z, pick(['poppy', 'dandelion', 'cornflower', 'oxeye_daisy', 'grass', 'grass', 'grass']));
   await sleep(40);
 }
+async function decoJungle(bot, o, b) {
+  await scatterTrees(bot, o, b, 'jungle_log', 'jungle_leaves', 24);
+}
+async function decoCherry(bot, o, b) {
+  await scatterTrees(bot, o, b, 'cherry_log', 'cherry_leaves', 22);
+  for (const [x, z] of backdropSpots(o, b, 70)) put(bot, x, o.y, z, 'pink_petals');
+  await sleep(40);
+}
+async function decoDesert(bot, o, b) {
+  // A cactus breaks itself if ANY horizontally-adjacent block is solid - including another
+  // cactus. Random spots on a big platform rarely collide, but "rarely" means the desert
+  // quietly loses a cactus now and then, so keep them a clear block apart by construction.
+  const planted = [];
+  const clashes = (x, z) => planted.some(([px, pz]) => Math.abs(px - x) <= 2 && Math.abs(pz - z) <= 2);
+  for (const [x, z] of backdropSpots(o, b, 30, { avoid: clashes })) {
+    planted.push([x, z]);
+    const h = ri(2, 4);
+    for (let k = 0; k < h; k++) put(bot, x, o.y + k, z, 'cactus');
+  }
+  // Dead bushes are not solid, so they can sit next to a cactus - they just can't sit ON one.
+  for (const [x, z] of backdropSpots(o, b, 40, { avoid: (x, z) => planted.some(([px, pz]) => px === x && pz === z) }))
+    put(bot, x, o.y, z, 'dead_bush');
+  await sleep(40);
+}
+// A frozen pond out past the build area, flush with the surface. Cut as a rough circle,
+// row by row: the old version filled a rectangle spanning the platform's whole width,
+// which reads as a giant white slab, not a pond.
+const POND = { dx: 170, dz: 170, r: 34 };
+function inPond(o, x, z) {
+  const dx = x - (o.x + POND.dx), dz = z - (o.z + POND.dz);
+  return dx * dx + dz * dz < (POND.r + 5) * (POND.r + 5);   // +5 so trees don't stand on the rim
+}
 async function decoSnowy(bot, o, b) {
-  // a calm frozen pond on the far +z edge, flush with the surface
-  await fillRegion(bot, b.x0, o.y - 1, o.z + 96, b.x1, o.y - 1, b.z1, 'packed_ice');
-  await scatterTrees(bot, o, { ...b, z1: o.z + 92 }, 'spruce_log', 'spruce_leaves', 7);
+  const cx = o.x + POND.dx, cz = o.z + POND.dz;
+  for (let dz = -POND.r; dz <= POND.r; dz++) {
+    const w = Math.round(Math.sqrt(POND.r * POND.r - dz * dz)) + ri(-2, 2);   // wobbly edge, not a stamped circle
+    if (w < 1) continue;
+    await fillRegion(bot, cx - w, o.y - 1, cz + dz, cx + w, o.y - 1, cz + dz, 'packed_ice');
+  }
+  await scatterTrees(bot, o, b, 'spruce_log', 'spruce_leaves', 16, { avoid: (x, z) => inPond(o, x, z) });
 }
 async function decoMountains(bot, o, b) {
-  // stone peaks with snow caps along the far edges - a backdrop skyline
-  for (let i = 0; i < 5; i++) {
-    const [x, z] = backdropSpots(o, b, 1)[0];
-    const R = ri(5, 8), H = ri(9, 15);
+  // Stone peaks with snow caps ringing the scene - a backdrop skyline. The margin has to clear
+  // the widest peak's radius, or a peak picked near the edge spills off the platform and hangs
+  // in mid-air over the natural terrain below. Each layer is also clamped to the platform, so
+  // no future change to the radius can reintroduce that.
+  const cx = (v) => Math.max(b.x0, Math.min(b.x1, v));
+  const cz = (v) => Math.max(b.z0, Math.min(b.z1, v));
+  for (const [x, z] of backdropSpots(o, b, 9, { margin: 12 })) {
+    const R = ri(6, 10), H = ri(10, 20);
     for (let y = 0; y < H; y++) {
       const r = Math.max(1, Math.round(R * (1 - y / H)));
-      await fillRegion(bot, x - r, o.y + y, z - r, x + r, o.y + y, z + r, y > H - 3 ? 'snow_block' : 'stone');
+      await fillRegion(bot, cx(x - r), o.y + y, cz(z - r), cx(x + r), o.y + y, cz(z + r), y > H - 3 ? 'snow_block' : 'stone');
     }
   }
 }
+// A palm: bare trunk, small crown, fronds drooping a block below it.
+async function placePalm(bot, x, y, z) {
+  const h = ri(5, 7), top = y + h;
+  for (let i = 0; i < h; i++) put(bot, x, y + i, z, 'jungle_log');
+  put(bot, x, top, z, 'jungle_leaves');
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    put(bot, x + dx, top, z + dz, 'jungle_leaves');
+    put(bot, x + dx * 2, top - 1, z + dz * 2, 'jungle_leaves');
+  }
+  await sleep(40);
+}
 async function decoBeach(bot, o, b) {
-  // a clean, calm, contained pool along the far +z edge - a pretty ocean stand-in
-  // with none of the real ocean's kelp/seagrass/uneven floor.
-  const z0 = o.z + 88;
-  await fillRegion(bot, b.x0, o.y - 4, z0, b.x1, o.y - 3, b.z1, 'sand');    // flat pool floor
-  await fillRegion(bot, b.x0, o.y - 2, z0, b.x1, o.y - 1, b.z1, 'water');   // 2-deep calm water, flush shoreline
+  // The shore apron IS the sea now, so the beach needs no pool - dress the dry sand behind
+  // the waterline instead (decoration inside the apron would be standing in the water).
+  const dry = { x0: b.x0 + SHORE_W, x1: b.x1 - SHORE_W, z0: b.z0 + SHORE_W, z1: b.z1 - SHORE_W };
+  for (const [x, z] of backdropSpots(o, dry, 7)) await placePalm(bot, x, o.y, z);
+  for (const [x, z] of backdropSpots(o, dry, 12)) put(bot, x, o.y, z, 'dead_bush');
+  await sleep(40);
 }
 
 // Level one build site into a flat platform: air out the footprint, then lay a
@@ -343,27 +682,97 @@ async function levelSite(bot, o) {
   await sleep(150);
 }
 
-// Bulldoze every used build site back to a clean slate. Uses /fill via an opped
-// bot - instant, no server restart, terrain outside the build grid untouched.
+// --- "build it HERE" marker -------------------------------------------------------
+// The outline of the next build's footprint, laid flush INTO the surface (at o.y-1, the
+// ground layer) rather than on top of it, so it doesn't trip up the builders and reads
+// cleanly from the viewer's overhead angle.
+async function ringFill(bot, o, block) {
+  const y = o.y - 1;
+  const [x0, x1, z0, z1] = [o.x - 8, o.x + 39, o.z - 8, o.z + 39];   // exactly levelSite's footprint
+  await fillRegion(bot, x0, y, z0, x1, y, z0, block);
+  await fillRegion(bot, x0, y, z1, x1, y, z1, block);
+  await fillRegion(bot, x0, y, z0 + 1, x0, y, z1 - 1, block);
+  await fillRegion(bot, x1, y, z0 + 1, x1, y, z1 - 1, block);
+}
+// Put the ground back exactly as it was. The marker's own ground block is remembered from
+// when it was drawn - the scene (and so groundBlock()) may have changed since.
+async function eraseMarker() {
+  if (!state.marker) return;
+  await ringFill(lead(), state.marker.o, state.marker.ground);
+  state.marker = null;
+}
+// Stake out where the crew should build next. `cx`/`cz` is the point the user clicked in
+// the 3D view; the build is centred on it, clamped to the flat build area.
+async function placeAt(cx, cz) {
+  if (state.busy) throw new Error('A build is already running.');
+  state.busy = true;
+  try {
+    await ensureCrew();
+    const o = clampPlacement(baseOrigin, cx, cz);
+    await eraseMarker();
+    await ringFill(lead(), o, MARKER_BLOCK);
+    state.marker = { o, ground: groundBlock() };
+    state.placement = o;
+    console.log(`[Web] Next build staked out at (${o.x}, ${o.z}).`);
+  } catch (err) {
+    console.error(`[Web] Could not stake that spot: ${err.message}`);
+  } finally {
+    state.busy = false;
+    broadcast({ type: 'status', ...publicState() });
+  }
+}
+// Back to the automatic 3x3 gallery grid.
+async function clearPlacement() {
+  if (state.busy) throw new Error('A build is already running.');
+  state.busy = true;
+  try {
+    await ensureCrew();
+    await eraseMarker();
+    state.placement = null;
+    console.log('[Web] Placement cleared - the next build goes to the next free grid spot.');
+  } finally {
+    state.busy = false;
+    broadcast({ type: 'status', ...publicState() });
+  }
+}
+
+// The whole zone a build can ever land in: every auto-grid spot (origin .. origin+80 on each
+// axis) and every hand-picked one (clampPlacement's box), each widened by levelSite's 48x48
+// footprint (origin-8 .. origin+39). It stops well short of isSceneBuilt's probe points, so
+// bulldozing it never makes a built plot read as unbuilt.
+function buildArea(o) {
+  return { x0: o.x - 20, x1: o.x + 132, z0: o.z - 20, z1: o.z + 132 };
+}
+
+// Bulldoze the plot's build zone back to clean, flat ground. Uses /fill via an opped bot -
+// instant, no server restart, and the scene around it (decoration, shore, peaks) is untouched.
+//
+// It clears the ZONE, not the list of sites we remember placing builds on, and that distinction
+// is the whole feature: `state.sceneSites` lives in this process, the world lives on disk. Come
+// back to a plot tomorrow and the houses are still standing while the list is empty - clearing
+// "every site we know about" would then be a no-op on a plot covered in buildings.
+async function clearPlot(bot, o) {
+  const b = buildArea(o);
+  await fillRegion(bot, b.x0, o.y, b.z0, b.x1, o.y + 59, b.z1, 'air');
+  await fillRegion(bot, b.x0, o.y - 4, b.z0, b.x1, o.y - 1, b.z1, groundBlock());
+}
+
 async function clearAllSites() {
   if (state.busy) throw new Error('A build is already running.');
   state.busy = true;
-  // A failed build leaves debris on the CURRENT site without bumping buildCount -
-  // sweep that site too when the last attempt errored.
-  const failedExtra = state.phase === 'error' ? 1 : 0;
   setPhase('clearing', { last: null });
-  const sites = Math.min(state.buildCount + failedExtra, 9);   // the grid wraps at 3x3 - sites get reused past 9
-  console.log(`\n[Web] Clearing ${sites} build site(s)...`);
-  const lead = crew.activeWorkers[0];
+  console.log('\n[Web] Clearing the ground - bulldozing the whole build area...');
   try {
-    for (let i = 0; i < sites; i++) {
-      const col = i % 3, row = Math.floor(i / 3) % 3;
-      const o = { x: baseOrigin.x + col * 40, y: baseOrigin.y, z: baseOrigin.z + row * 40 };
-      await lead.teleportTo(o.x + 16, o.y, o.z + 16);   // load the site's chunks
-      await levelSite(lead.bot, o);
-    }
-    state.buildCount = 0;
-    state.sceneBuildCounts[state.background] = 0;
+    await ensureCrew();
+    const lead = crew.activeWorkers[0];
+    // /fill only reaches loaded chunks: stand in the middle of the zone before levelling it.
+    await lead.teleportTo(baseOrigin.x + 56, baseOrigin.y, baseOrigin.z + 56);
+    await sleep(600);
+    await clearPlot(lead.bot, baseOrigin);
+    // The marker outline sits at o.y-1 inside the zone, so the re-laid ground already erased it.
+    state.marker = null;
+    state.placement = null;
+    sites().length = 0;
     await formation(baseOrigin);
     setPhase('done', { last: { name: 'Ground cleared', blocks: 0, prompt: 'clear' } });
     console.log('[Web] Ground cleared - fresh slate.');
@@ -380,8 +789,9 @@ async function clearAllSites() {
 // Go to a scene. Each scene has its own PERMANENT plot, so it's only ever built
 // once - the first visit constructs it (clean flat platform, solid encased base so
 // no caves show underneath, themed surface, edge decoration); every visit after is
-// an instant teleport, because the world is saved to disk. `force` rebuilds from
-// scratch (used by "Clear ground").
+// an instant teleport, because the world is saved to disk. `force` reconstructs the
+// whole plot - platform, surface and decoration - from scratch. ("Clear ground" does
+// NOT force: it bulldozes the build zone and leaves the scene's scenery standing.)
 async function buildScene(id, { force = false } = {}) {
   const sc = SCENES[id];
   if (state.busy) throw new Error('A build is already running.');
@@ -389,10 +799,19 @@ async function buildScene(id, { force = false } = {}) {
   const o = plotAnchor(id);
   const knownBuilt = !force && state.builtScenes.has(id);
   setPhase('switching', { last: null });   // provisional; flips to building_scene only if we actually build
-  const lead = crew.activeWorkers[0];
   try {
+    await ensureCrew();
+    const lead = crew.activeWorkers[0];
+    // Take the marker down while the crew is still standing on the plot that has it -
+    // its chunks are loaded here and won't be once we teleport away.
+    await eraseMarker();
+    state.placement = null;
     baseOrigin = { x: o.x, y: o.y, z: o.z };
     state.background = id;
+    // Move the view to the new plot FIRST, so the user watches this scene go down instead of
+    // staring at the old one until it's finished. Scene plots are 320 blocks apart, so the
+    // camera has to make the trip - it renders 8 chunks, not 20.
+    await aimCamera(o);
     const b = sceneBounds(o);
     // Decide whether the plot needs constructing. Known-built (this session) skips
     // straight to the teleport; otherwise park the crew above the plot, let its
@@ -405,23 +824,67 @@ async function buildScene(id, { force = false } = {}) {
       await sleep(1200);
       needBuild = !(await isSceneBuilt(lead.bot, o, sc));
     }
+    // Lay the whole scene. `lead.bot` is read fresh on every command on purpose: if the lead
+    // drops and reconnects, the Worker object survives but its bot does not, and a captured
+    // `bot` would keep talking to the dead one.
+    const construct = async () => {
+      console.log(`[Web] Clearing the ground and laying the ${sc.label} platform...`);
+      await fillRegion(lead.bot, b.x0, o.y, b.z0, b.x1, o.y + 19, b.z1, 'air');            // shear off everything above (dunes, trees, hills)
+      await fillRegion(lead.bot, b.x0, o.y - 24, b.z0, b.x1, o.y - 3, b.z1, sc.support);   // solid encasing base (hides caves), also bridges any dip in the terrain
+      await fillRegion(lead.bot, b.x0, o.y - 2, b.z0, b.x1, o.y - 1, b.z1, sc.ground);     // themed flat surface
+      if (sc.shore) {
+        console.log(`[Web] Cutting the shoreline (sand sloping into the sea)...`);
+        await buildShore(lead.bot, o, b, sc);
+      }
+      // The tint. Without this the blocks are right but the COLOURS are the old biome's:
+      // grass_block in a desert renders dry olive, and a biome seam across the plot shows
+      // up as a patch of a different green. Covers the shore water too (water is tinted).
+      console.log(`[Web] Painting the ${sc.label} biome...`);
+      await fillBiome(lead.bot, b.x0, o.y - 20, b.z0, b.x1, o.y + 20, b.z1, sc.biome);
+      // The sea gets its own biome on top: water colour is a tint, so a `beach`-biome sea
+      // is the same flat navy as a river, while `warm_ocean` gives the turquoise shallows
+      // that make the shoreline actually look tropical. Only the apron ring - the dry
+      // platform keeps the scene's own biome, so the sand and foliage stay right.
+      if (sc.shore && sc.waterBiome) {
+        for (const r of frameStrips(b, 0, SHORE_W))
+          await fillBiome(lead.bot, r.x0, SEA_Y - SHORE_DEPTH, r.z0, r.x1, o.y + 20, r.z1, sc.waterBiome);
+      }
+      console.log(`[Web] Dressing the ${sc.label} scene...`);
+      if (sc.decorate) await sc.decorate(lead.bot, o, b);
+      // The stamp goes down LAST, once every fill above has landed. It is what marks the plot
+      // as finished, so stamping a scene that only half-built would cache the damage forever.
+      put(lead.bot, o.x, o.y - 30, o.z, SCENE_STAMP);   // buried layout stamp (see isSceneBuilt)
+      await sleep(60);
+    };
+
     if (needBuild) {
       setPhase('building_scene');
       console.log(`\n[Web] Building the ${sc.label} scene (first time)...`);
-      if (force) { await parkAbove(); await sleep(1200); }   // rebuilding - make sure chunks are loaded
-      console.log(`[Web] Clearing the ground and laying the ${sc.label} platform...`);
-      await fillRegion(lead.bot, b.x0, o.y, b.z0, b.x1, o.y + 31, b.z1, 'air');            // shear off everything above (1 tile tall - spawn is flat)
-      await fillRegion(lead.bot, b.x0, o.y - 34, b.z0, b.x1, o.y - 3, b.z1, sc.support);   // solid encasing base (hides caves), 1 tile deep
-      await fillRegion(lead.bot, b.x0, o.y - 2, b.z0, b.x1, o.y - 1, b.z1, sc.ground);     // themed flat surface
-      console.log(`[Web] Dressing the ${sc.label} scene...`);
-      if (sc.decorate) await sc.decorate(lead.bot, o, b);
-      state.sceneBuildCounts[id] = 0;   // a freshly built plot starts empty
+      // Retry once. A scene is thousands of chunk-rewriting commands, and a server that busy
+      // can starve its own keepalives long enough to drop a bot (see MC_TIMEOUT in src/bot.js).
+      // assertLead() turns that into a real error instead of a silently half-built scene, and
+      // every fill here is idempotent, so starting over is always safe.
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await parkAbove();
+          await sleep(1200);   // let the plot's chunks stream in - fills need them loaded
+          await construct();
+          break;
+        } catch (err) {
+          if (attempt >= 2) throw err;
+          console.warn(`[Web] Scene build interrupted (${err.message}) - reconnecting and starting over...`);
+          await ensureCrew();
+        }
+      }
+      await refreshChunks(o);            // make the new biome tint actually reach the viewer
+      state.sceneNonce++;                // tell the page to re-frame even if the scene name is unchanged
+      state.sceneSites[id] = [];         // a freshly built plot starts empty
     } else {
       console.log(`\n[Web] Switching to the ${sc.label} scene (already built)...`);
     }
     state.builtScenes.add(id);
-    state.buildCount = state.sceneBuildCounts[id] || 0;   // resume THIS plot's own gallery
     await formation(o);
+    await aimCamera(o);   // each scene is its own plot 320 blocks away - the view has to travel too
     setPhase('done', { last: { name: `${sc.label} scene ready`, blocks: 0, prompt: 'scene' } });
     console.log(`[Web] ${sc.label} scene ready - build grid anchored at (${o.x}, ${o.y}, ${o.z}).`);
   } catch (err) {
@@ -439,13 +902,64 @@ async function buildScene(id, { force = false } = {}) {
 // derives its socket.io path from the page URL (location.pathname + 'socket.io'),
 // and the viewer server is started with { prefix: '/viewer' } to match - the proxy
 // is a pure pass-through, no path rewriting.
+// Click-to-place needs the viewer's CAMERA, and prismarine-viewer's webpack bundle keeps its
+// Viewer (camera included) in module scope - nothing lands on `window`, not even THREE. (The
+// `global.THREE = require('three')` line in prismarine-viewer belongs to lib/index.js and
+// lib/headless.js, which are the NODE side; the browser bundle never runs them. A hook that
+// waits for window.THREE therefore waits forever, which is how click-to-place spent its whole
+// life silently returning "no hit" on every click.)
+//
+// What the bundle DOES offer is three.js's own devtools handshake: every WebGLRenderer and
+// Scene it constructs dispatches an 'observe' CustomEvent - whose `detail` IS the object - at
+// `window.__THREE_DEVTOOLS__`, if one exists. So we define one before the bundle loads, catch
+// the renderer, and wrap its render(), which is handed the live camera every single frame.
+// That handshake is a supported three.js API (r128 here), not a bundle internal - but if it
+// ever goes away the page just falls back to the automatic grid; placement is a nicety.
+const VIEWER_HOOK = `<script>
+(function () {
+  var hooked = false;
+  try {
+    window.__THREE_DEVTOOLS__ = {
+      dispatchEvent: function (e) {
+        var o = e && e.detail;
+        // Scenes announce themselves here too - the renderer is the one with a canvas.
+        if (hooked || !o || typeof o.render !== 'function' || !o.domElement) return;
+        hooked = true;
+        var render = o.render.bind(o);
+        // Only the to-screen pass carries the user's camera. The viewer also renders the
+        // scene through this same render() for its sky: a CubeCamera pass drawing 6 faces
+        // to a cube render target with cameras parked at the origin - park one of THOSE
+        // and every pick unprojects through an identity camera and misses the ground.
+        o.render = function (scene, camera) {
+          if (!o.getRenderTarget || o.getRenderTarget() === null) window.__cam = camera;
+          return render(scene, camera);
+        };
+      },
+    };
+  } catch (e) { /* viewer still works, placement falls back to auto */ }
+})();
+</script>`;
+
 function proxyToViewer(req, res) {
+  // Only the viewer's own HTML page gets the hook - everything else (the bundle, assets,
+  // socket.io polling) is a straight pass-through.
+  const isPage = /^\/viewer\/(index\.html)?(\?|$)/.test(req.url);
   const upstream = http.request({
     host: '127.0.0.1', port: VIEWER_PORT, path: req.url,
     method: req.method, headers: { ...req.headers, host: `127.0.0.1:${VIEWER_PORT}` },
   }, (ures) => {
-    res.writeHead(ures.statusCode, ures.headers);
-    ures.pipe(res);
+    if (!isPage || !/text\/html/.test(ures.headers['content-type'] || '')) {
+      res.writeHead(ures.statusCode, ures.headers);
+      return ures.pipe(res);
+    }
+    const chunks = [];
+    ures.on('data', (c) => chunks.push(c));
+    ures.on('end', () => {
+      const html = Buffer.concat(chunks).toString('utf8').replace('</head>', `${VIEWER_HOOK}</head>`);
+      const body = Buffer.from(html, 'utf8');
+      res.writeHead(ures.statusCode, { ...ures.headers, 'content-length': body.length });
+      res.end(body);
+    });
   });
   upstream.on('error', () => {
     res.writeHead(502, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -524,8 +1038,29 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && url.pathname === '/clear') {
     if (state.busy) { res.writeHead(409, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'busy' })); }
-    if (!state.buildCount && state.phase !== 'error') { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'nothing to clear' })); }
+    if (!state.builtScenes.has(state.background)) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'the scene is not built yet' })); }
     clearAllSites().catch((e) => console.error('[Web]', e.message));   // fire-and-forget
+    res.writeHead(202, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ ok: true }));
+  }
+
+  // Stake out where the next build goes. The page turns a click in the 3D view into
+  // world x/z (a ray from the camera through the cursor, intersected with the ground
+  // plane) and posts it here.
+  if (req.method === 'POST' && url.pathname === '/place') {
+    const body = await readBody(req);
+    let p = {};
+    try { p = JSON.parse(body || '{}'); } catch { /* ignore */ }
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.z)) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'bad point' })); }
+    if (state.busy) { res.writeHead(409, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'busy' })); }
+    placeAt(p.x, p.z).catch((e) => console.error('[Web]', e.message));   // fire-and-forget
+    res.writeHead(202, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ ok: true }));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/place/auto') {
+    if (state.busy) { res.writeHead(409, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'busy' })); }
+    clearPlacement().catch((e) => console.error('[Web]', e.message));   // fire-and-forget
     res.writeHead(202, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ ok: true }));
   }
@@ -551,32 +1086,60 @@ server.on('upgrade', (req, socket, head) => {
 // --- startup --------------------------------------------------------------------
 async function main() {
   console.log('\n  Minecraft Agentic Builder - Web UI\n');
-  await ensureServerUp();
 
-  crew = new Crew(null, { host: process.env.MC_HOST || 'localhost', port: parseInt(process.env.MC_PORT || '25565', 10) });
-  await crew.assembleTeam(['mason', 'carpenter', 'decorator', 'landscaper']);
+  // Listen and open the browser BEFORE the slow work, not after it. Booting the server
+  // and the crew takes the better part of a minute, and doing it first meant every bit
+  // of that progress landed in the terminal only - the browser then opened on a panel
+  // that was already finished. Now the page is up front, so the boot streams into it.
+  await new Promise((resolve) => server.listen(WEB_PORT, resolve));
+  console.log('========================================================');
+  console.log(`  OPENING IN YOUR BROWSER:  http://localhost:${WEB_PORT}`);
+  console.log(`  (watch the crew boot there - prompt box + live 3D view)`);
+  console.log('========================================================\n');
+  openBrowser(`http://localhost:${WEB_PORT}`);
 
-  // Anchor scenes at the stable WORLD spawn (not the crew's saved position, which
-  // drifts as they build) at a fixed height, then start the viewer.
-  const bot = crew.activeWorkers[0].bot;
-  const sp = bot.spawnPoint || bot.entity.position;
-  baseOrigin = { x: Math.floor(sp.x) + 6, y: STAGE_Y, z: Math.floor(sp.z) + 6 };
-  SPAWN = { ...baseOrigin };   // every scene is constructed here
-  await formation(baseOrigin);
-  VIEWER_PORT = await findFreePort(VIEWER_PORT);   // never let a stale port disable the view
-  await startViewer(bot, { prefix: '/viewer', quiet: true, port: VIEWER_PORT });
+  try {
+    setBoot('server', 'active');
+    await ensureServerUp();
+    setBoot('server', 'done');
 
-  server.listen(WEB_PORT, () => {
-    console.log('\n========================================================');
-    console.log(`  OPEN IN YOUR BROWSER:  http://localhost:${WEB_PORT}`);
-    console.log(`  (prompt box + presets + live 3D view, all on one page)`);
-    console.log('========================================================\n');
-    openBrowser(`http://localhost:${WEB_PORT}`);
-  });
+    // assembleTeam() pacifies the world for us (see src/world.js): peaceful, no weather,
+    // permanent noon - so nothing wanders into frame or snows on a finished scene.
+    setBoot('crew', 'active');
+    crew = new Crew(null, { host: process.env.MC_HOST || 'localhost', port: parseInt(process.env.MC_PORT || '25565', 10) });
+    await crew.assembleTeam(['mason', 'carpenter', 'decorator', 'landscaper']);
+    setBoot('crew', 'done');
+
+    // Anchor scenes at the stable WORLD spawn (not the crew's saved position, which
+    // drifts as they build) at a fixed height, then start the viewer.
+    setBoot('viewer', 'active');
+    const bot = crew.activeWorkers[0].bot;
+    const sp = bot.spawnPoint || bot.entity.position;
+    baseOrigin = { x: Math.floor(sp.x) + 6, y: STAGE_Y, z: Math.floor(sp.z) + 6 };
+    SPAWN = { ...baseOrigin };   // every scene is constructed here
+    await formation(baseOrigin);
+    // The view renders from the CAMERA bot, which is parked here and then holds still for
+    // the rest of the session (see src/camera.js). A moving viewer bot churns chunk columns
+    // and prismarine-viewer silently drops the mesh jobs that were in flight, freezing whole
+    // chunk sections mid-build - that is what produced a roofless cottage with its ridge beam
+    // hanging in the air while the real world had a perfectly good roof.
+    await aimCamera(baseOrigin);
+    VIEWER_PORT = await findFreePort(VIEWER_PORT);   // never let a stale port disable the view
+    await startViewer(crew.viewerBot(), { prefix: '/viewer', quiet: true, port: VIEWER_PORT });
+    viewerReady = true;
+    setBoot('viewer', 'done');
+  } catch (e) {
+    bootFailed(e.message);   // leave the boot screen up with the failure, don't just die silently
+    throw e;
+  }
+
+  boot.done = true;
+  broadcast({ type: 'status', ...publicState() });   // the page swaps the boot screen for the panel
 
   // Construct a clean Plains scene right away so the very first thing the user sees
-  // is a tidy flat starting point, not raw spawn terrain. Fire-and-forget so the
-  // page is available immediately and they watch it build in.
+  // is a tidy flat starting point, not raw spawn terrain. Fire-and-forget, and left
+  // OUTSIDE the boot gate on purpose: the panel is usable immediately and the platform
+  // going down is the first thing you watch the crew do in the 3D view.
   buildScene('spawn').catch((e) => console.error('[Web]', e.message));
 }
 
@@ -654,9 +1217,53 @@ const PAGE = `<!doctype html>
   .viewer { position:relative; background:#000; min-width:0; overflow:hidden; }
   .viewer iframe { width:100%; height:100%; border:0; display:block; }
   .viewer .cover { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:var(--dim); padding:20px; pointer-events:none; }
+  .aim { position:absolute; top:0; left:0; right:0; padding:10px; text-align:center; font-weight:600; font-size:13px;
+         background:linear-gradient(180deg,rgba(63,185,80,.92),rgba(63,185,80,0)); color:#04140a; pointer-events:none; }
+  .aim[hidden] { display:none; }
   label.small { font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
+  .inline { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+  /* Boot screen - the server/crew/viewer startup, which the terminal used to keep to itself. */
+  .boot { position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:24px;
+          background:radial-gradient(900px 520px at 50% -10%, #1d2733, var(--bg) 70%); transition:opacity .5s ease; }
+  .boot.gone { opacity:0; pointer-events:none; }
+  .bootcard { width:min(560px,100%); background:var(--panel); border:1px solid var(--edge); border-radius:16px;
+              padding:26px 26px 20px; box-shadow:0 24px 70px rgba(0,0,0,.55); }
+  .bootcard .pick { font-size:30px; }
+  .bootcard h2 { margin:10px 0 6px; font-size:19px; }
+  .steps { list-style:none; margin:18px 0 0; padding:0; }
+  .steps li { display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:9px; font-size:13.5px; color:var(--dim); }
+  .steps li.active { background:#0b0e12; color:var(--ink); }
+  .steps li.done { color:var(--ink); }
+  .steps li.failed { color:var(--danger); }
+  .ic { width:17px; height:17px; flex:none; border-radius:50%; border:2px solid var(--edge2); position:relative; }
+  li.active .ic { border-color:var(--accent2); border-top-color:transparent; animation:spin .7s linear infinite; }
+  li.done .ic { border-color:var(--accent); background:var(--accent); }
+  li.done .ic::after { content:''; position:absolute; left:4.5px; top:1px; width:4px; height:8px;
+                       border:solid #04140a; border-width:0 2px 2px 0; transform:rotate(45deg); }
+  li.failed .ic { border-color:var(--danger); background:var(--danger); }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  /* Tail of the same log the panel shows, so a slow step never looks like a hang. */
+  .bootlog { margin-top:16px; height:104px; overflow:hidden; background:#080b0e; border:1px solid var(--edge);
+             border-radius:9px; padding:9px 11px; font:11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+             color:#6f7d8b; display:flex; flex-direction:column; justify-content:flex-end; }
+  .bootlog div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .booterr { margin-top:14px; padding:10px 12px; border-radius:9px; background:#1f1315; border:1px solid #5c2a2a;
+             color:var(--danger); font-size:13px; }
+  .booterr[hidden] { display:none; }
 </style></head>
 <body>
+<div class="boot" id="boot">
+  <div class="bootcard">
+    <div class="pick">&#9935;</div>
+    <h2>Warming up the build site</h2>
+    <p class="hint">Booting the Minecraft server, spawning the crew, and starting the 3D view.
+      The very first run takes a minute - the world has to generate from scratch.</p>
+    <ul class="steps" id="bootsteps"></ul>
+    <div class="booterr" id="booterr" hidden></div>
+    <div class="bootlog" id="bootlog"></div>
+  </div>
+</div>
 <header>
   <h1>&#9935; Minecraft Agentic Builder <span class="pick">- crew control</span></h1>
   <span id="badge" class="badge">-</span>
@@ -679,6 +1286,14 @@ const PAGE = `<!doctype html>
       <label class="small">Scene - a pretty flat starting point</label>
       <div id="bgs" class="chips"></div>
     </div>
+    <div class="field">
+      <label class="small">Where to build</label>
+      <div class="inline">
+        <button id="place" class="ghost">Pick a spot</button>
+        <button id="auto" class="ghost">Auto</button>
+        <span id="placeInfo" class="hint"></span>
+      </div>
+    </div>
     <div class="status"><span id="dot" class="dot"></span><span id="statusText">Connecting...</span>
       <button id="clear" class="ghost danger" style="margin-left:auto" title="Bulldoze every build and re-grass the ground" disabled>Clear ground</button>
     </div>
@@ -688,20 +1303,139 @@ const PAGE = `<!doctype html>
     </div>
   </section>
   <section class="viewer">
-    <iframe id="view" src="/viewer/" title="build viewer"></iframe>
+    <!-- src is set once boot completes: the viewer's port isn't even chosen until then,
+         so loading it up front would just latch the iframe onto the proxy's 502 page. -->
+    <iframe id="view" title="build viewer"></iframe>
     <div class="cover" id="cover">Loading the world view...<br>drag to orbit &middot; scroll to zoom</div>
+    <div class="aim" id="aim" hidden>Click the ground where the crew should build</div>
   </section>
 </main>
 <script>
   const $ = (id) => document.getElementById(id);
-  $('view').addEventListener('load', () => $('cover').style.display = 'none');
+  let live = false, busy = false, lastBg, lastNonce, surfaceY = 72, aiming = false;
+  let booted = false, viewerStarted = false, firstStatus = true;
 
-  let live = false, busy = false, lastBg;
+  // --- boot screen --------------------------------------------------------------
+  // Driven off status.boot, which every /status and every SSE status frame carries - so
+  // opening the page late (or reloading mid-boot) lands on the right screen with no
+  // special-casing. The steps come from the server rather than being timed here, because
+  // "waiting for the world to generate" has no predictable duration to fake a bar against.
+  function renderBoot(b) {
+    if (!b || booted) return;
+    // Reloading an already-booted panel: the overlay is in the markup, so it has already
+    // painted by the time this first status lands. Cut straight to the panel instead of
+    // playing a fade the user reads as a spurious flash of a loading screen.
+    if (b.done && firstStatus) {
+      booted = true; firstStatus = false;
+      showViewer();
+      $('boot').style.display = 'none';
+      return;
+    }
+    firstStatus = false;
+    const ul = $('bootsteps');
+    ul.textContent = '';
+    b.steps.forEach((s) => {
+      const li = document.createElement('li');
+      li.className = s.state;
+      const ic = document.createElement('span'); ic.className = 'ic';
+      const tx = document.createElement('span'); tx.textContent = s.label;
+      li.appendChild(ic); li.appendChild(tx);
+      ul.appendChild(li);
+    });
+    $('booterr').hidden = !b.error;
+    if (b.error) $('booterr').textContent = 'Boot failed: ' + b.error + ' (see the terminal)';
+    if (!b.done) return;
+    booted = true;
+    showViewer();
+    $('boot').classList.add('gone');
+    setTimeout(() => { $('boot').style.display = 'none'; }, 550);
+  }
+  function showViewer() {
+    if (viewerStarted) return;
+    viewerStarted = true;
+    $('view').src = '/viewer/';
+  }
+  function addBootLog(line) {
+    const box = $('bootlog');
+    const el = document.createElement('div');
+    el.textContent = line;
+    box.appendChild(el);
+    while (box.children.length > 5) box.removeChild(box.firstChild);
+  }
+
+  // --- click a spot in the 3D view, build there ---------------------------------
+  // The iframe is same-origin (we reverse-proxy the viewer), so we can listen for clicks
+  // inside it and read the camera the injected hook parked on its window. Turning a click
+  // into world coordinates is then just a ray: unproject the cursor through the camera and
+  // intersect it with the scene's ground plane (the viewer's scene is in real world coords,
+  // so no conversion needed). No mesh picking, nothing that depends on what's loaded.
+  //
+  // The vector math runs on the camera's OWN Vector3 (cloned off cam.position) rather than on a
+  // freshly constructed w.THREE.Vector3 - the bundle keeps THREE in module scope and never puts
+  // it on the window, so reaching for w.THREE is reaching for undefined. The instance carries
+  // every method we need (set/unproject/sub/normalize), and it can't go stale.
+  function pickGround(w, e) {
+    try {
+      const cam = w.__cam;
+      if (!cam || !cam.position) return null;
+      const canvas = w.document && w.document.querySelector('canvas');
+      const r = canvas ? canvas.getBoundingClientRect()
+                       : { left: 0, top: 0, width: w.innerWidth, height: w.innerHeight };
+      if (!r.width || !r.height) return null;
+      const p = cam.position.clone()
+        .set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1, 0.5)
+        .unproject(cam);
+      const d = p.sub(cam.position).normalize();
+      if (Math.abs(d.y) < 1e-4) return null;                  // looking along the ground - no hit
+      const t = (surfaceY - cam.position.y) / d.y;
+      if (t <= 0 || t > 900) return null;                     // behind the camera, or off past the horizon
+      return { x: Math.round(cam.position.x + d.x * t), z: Math.round(cam.position.z + d.z * t) };
+    } catch (err) { return null; }
+  }
+  function setAiming(on) {
+    aiming = on;
+    $('aim').hidden = !on;
+    $('place').classList.toggle('active', on);
+    try { $('view').contentDocument.body.style.cursor = on ? 'crosshair' : ''; } catch (err) { /* not loaded yet */ }
+  }
+  function hookViewer() {
+    try {
+      const w = $('view').contentWindow, doc = w.document;
+      let sx = 0, sy = 0;
+      // POINTERDOWN, not mousedown: the viewer's orbit controls preventDefault() their
+      // pointerdown, and a canceled pointerdown suppresses the compatibility mousedown
+      // entirely (click still fires). A mousedown-armed guard never arms, reads every
+      // click as a drag from (0,0), and eats it silently.
+      doc.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
+      doc.addEventListener('click', (e) => {
+        if (!aiming || busy) return;
+        // Orbiting the camera also ends in a click - only treat it as a pick if the
+        // pointer didn't travel.
+        if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 5) return;
+        const p = pickGround(w, e);
+        if (!p) {
+          addLog(w.__cam ? '[Web] Could not read that spot - aim at the ground.'
+                         : '[Web] The 3D view is still starting up - try that click again.');
+          return;
+        }
+        setAiming(false);
+        fetch('/place', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(p) });
+      });
+    } catch (err) { /* viewer unavailable - placement stays on the automatic grid */ }
+  }
+  $('view').addEventListener('load', () => { $('cover').style.display = 'none'; hookViewer(); });
+  $('place').addEventListener('click', () => { if (!busy) setAiming(!aiming); });
+  $('auto').addEventListener('click', () => { if (busy) return; setAiming(false); fetch('/place/auto', { method:'POST' }); });
+
   // The viewer's camera locks onto the bot's position when it CONNECTS, so after
   // the crew travels somewhere new we reload the iframe to re-frame the new scene -
   // no manual page refresh. Query string busts cache; the socket.io path comes from
   // location.pathname (still /viewer/) so the connection is unaffected.
-  function reframeViewer(){ $('cover').style.display = 'flex'; $('view').src = '/viewer/?t=' + Date.now(); }
+  function reframeViewer(){
+    if (!viewerStarted) return;   // still booting - showViewer() will do the first load
+    $('cover').style.display = 'flex';
+    $('view').src = '/viewer/?t=' + Date.now();
+  }
 
   function classify(line){
     if (/^\\[Crew\\]/.test(line)) return 'crew';
@@ -715,11 +1449,23 @@ const PAGE = `<!doctype html>
     el.textContent = line;
     const box = $('log'); box.appendChild(el); box.scrollTop = box.scrollHeight;
     while (box.children.length > 400) box.removeChild(box.firstChild);
+    if (!booted) addBootLog(line);   // same stream, tailed on the boot screen
   }
   function setStatus(s){
+    renderBoot(s.boot);
     live = s.live; busy = s.busy;
-    if (lastBg === undefined) lastBg = s.background;
-    else if (s.background !== lastBg) { lastBg = s.background; reframeViewer(); }
+    if (s.surfaceY) surfaceY = s.surfaceY;
+    $('placeInfo').textContent = s.placement
+      ? 'Next build: (' + s.placement.x + ', ' + s.placement.z + ')'
+      : 'Next build: next free spot on the grid';
+    $('place').disabled = s.busy;
+    $('auto').disabled = s.busy || !s.placement;
+    if (s.busy) setAiming(false);
+    // Re-frame on a scene switch, and also on a rebuild-in-place (same name, new world).
+    if (lastBg === undefined) { lastBg = s.background; lastNonce = s.sceneNonce; }
+    else if (s.background !== lastBg || s.sceneNonce !== lastNonce) {
+      lastBg = s.background; lastNonce = s.sceneNonce; reframeViewer();
+    }
     $('badge').textContent = s.live ? s.providerLabel : 'no key - library mode';
     $('badge').className = 'badge' + (s.live ? ' live' : '');
     $('prompt').disabled = !s.live;
@@ -729,7 +1475,7 @@ const PAGE = `<!doctype html>
     const dot = $('dot'), t = $('statusText');
     dot.className = 'dot ' + (s.busy ? 'busy' : (s.phase==='done'?'done':s.phase==='error'?'error':''));
     $('go').disabled = s.busy || !s.live;
-    $('clear').disabled = s.busy || (!s.built && s.phase!=='error');
+    $('clear').disabled = s.busy || !s.clearable;
     document.querySelectorAll('#chips button').forEach(b => b.disabled = s.busy);
     document.querySelectorAll('#bgs button').forEach(b => {
       b.disabled = s.busy;

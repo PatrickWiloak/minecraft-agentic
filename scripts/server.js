@@ -94,7 +94,15 @@ export async function ensureServerUp() {
       // the bot's y > 0, so a flat world leaves the viewer staring at empty space.
       // 1.20.1: must match the bots (src/bot.js) AND be exactly supported by
       // prismarine-viewer so the browser view renders blocks correctly.
-      `-e VERSION=${process.env.MC_VERSION || '1.20.1'} -e MEMORY=1G`,
+      `-e VERSION=${process.env.MC_VERSION || '1.20.1'} -e MEMORY=${process.env.MC_MEMORY || '2G'}`,
+      // How much world the server STREAMS to each bot, in chunks. The default (10, ~160
+      // blocks) is smaller than the scene the web panel paints: that platform is 337x337
+      // (see plotBounds in scripts/web.js), so from the camera bot parked at the build site
+      // the far half of it was never sent at all - which is the hard edge where the grass
+      // stops and the sky begins in the browser view. 24 chunks = 384 blocks reaches the
+      // far corners. This is also the ceiling on VIEWER_DISTANCE (src/viewer.js): the
+      // browser renders the bot's world, and it cannot draw chunks the server never sent.
+      `-e VIEW_DISTANCE=${process.env.MC_VIEW_DISTANCE || '24'}`,
       `-v ${VOLUME}:/data`,
       `-v "${opsMount}"`,
       IMAGE,
@@ -124,6 +132,21 @@ function resetServer() {
   console.log(g('✔ Server and world removed. Next `npm run play` starts fresh.'));
 }
 
+// Rebuild the CONTAINER, keep the WORLD.
+//
+// Docker only reads `-e` at `docker run`, so a setting like VIEW_DISTANCE is baked into the
+// container the day it is created - `docker stop && docker start` replays the ORIGINAL env
+// and quietly ignores whatever ensureServerUp would pass today. Changing a server setting
+// therefore requires destroying the container, and the only command that did that was
+// `reset`, which also drops the world volume. So a settings change cost you every build you
+// had standing. It doesn't now: the world lives in the named volume, not the container.
+async function recreateServer() {
+  requireDocker();
+  quiet(`docker rm -f ${NAME}`);
+  console.log('• Container removed (world volume kept) - recreating with current settings...');
+  await ensureServerUp();
+}
+
 async function status() {
   requireDocker();
   const state = containerState();
@@ -135,7 +158,7 @@ async function status() {
 // NOT when imported by play.js (whose argv is the build prompt/flags, not a server command).
 if (import.meta.url === `file://${process.argv[1]}`) {
   const cmd = process.argv[2] || 'up';
-  const run = { up: ensureServerUp, stop: stopServer, reset: resetServer, status };
-  if (!run[cmd]) { console.error(`Unknown command: ${cmd}. Use: up | stop | reset | status`); process.exit(1); }
+  const run = { up: ensureServerUp, stop: stopServer, reset: resetServer, recreate: recreateServer, status };
+  if (!run[cmd]) { console.error(`Unknown command: ${cmd}. Use: up | stop | reset | recreate | status`); process.exit(1); }
   await run[cmd]();
 }

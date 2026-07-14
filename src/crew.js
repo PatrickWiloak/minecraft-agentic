@@ -1,6 +1,13 @@
 import { Worker } from './worker.js';
 import { Coordinator } from './coordinator.js';
 import { startViewer } from './viewer.js';
+import { Camera } from './camera.js';
+import { pacifyWorld } from './world.js';
+import { Vec3 } from 'vec3';
+
+// Blocks that legitimately vanish on their own if their support isn't right (a poppy on a
+// wall footing, wheat on plain dirt). Excluded from the build-integrity check.
+const POPS_OFF = /poppy|dandelion|cornflower|orchid|allium|daisy|sapling|wheat|carrots|grass$|petals|dead_bush|torch|water|fire|campfire/;
 
 export class Crew {
   constructor(apiKey, serverOptions = {}) {
@@ -8,6 +15,7 @@ export class Crew {
     this.serverOptions = serverOptions;
     this.workers = new Map();
     this.activeWorkers = [];
+    this.camera = null;   // the viewer renders from this bot, and ONLY this bot (see camera.js)
   }
 
   async assembleTeam(roles = ['mason', 'carpenter', 'decorator', 'landscaper']) {
@@ -22,11 +30,76 @@ export class Crew {
     }
 
     console.log(`\n[Crew] Team assembled: ${roles.join(', ')}\n`);
+    // Hostile mobs demolish finished builds (creeper craters, endermen lifting the lawn) and
+    // fire spreads off the cottage's campfire. One opped bot switches all of it off.
+    if (this.activeWorkers.length > 0) {
+      await pacifyWorld(this.activeWorkers[0].bot);
+      // The camera bot is NOT one of the workers on purpose - see src/camera.js. Workers
+      // teleport around the site as they build, and a moving viewer bot churns chunks and
+      // leaves half-meshed geometry (the roofless-cottage bug).
+      this.camera = new Camera();
+      await this.camera.connect(this.serverOptions, this.activeWorkers[0].bot);
+    }
     return this;
   }
 
+  /** The bot the browser viewer renders from: the camera if we have one, else the lead. */
+  viewerBot() {
+    return this.camera?.alive ? this.camera.bot : this.activeWorkers[0]?.bot;
+  }
+
+  /** Point the camera at a site. Only safe BETWEEN builds - a moving camera churns chunks. */
+  async aimCamera(origin) {
+    if (!this.camera?.alive || !this.activeWorkers[0]?.alive) return;
+    await this.camera.park(this.activeWorkers[0].bot, {
+      x: origin.x - 2, y: origin.y + 2, z: origin.z - 8,
+    });
+  }
+
+  // A worker that timed out is still in the roster but its /setblock commands go nowhere.
+  // Reconnect the dead ones before a build rather than silently building half a house.
+  async ensureAlive() {
+    for (const worker of this.activeWorkers) {
+      if (worker.alive) continue;
+      console.log(`[Crew] ${worker.name} was disconnected - reconnecting...`);
+      await worker.connect();
+      await this.sleep(500);
+    }
+    // A dead camera means a frozen browser view - the build still runs, but nobody sees it.
+    if (this.camera && !this.camera.alive && this.activeWorkers[0]?.alive) {
+      console.log('[Crew] Camera was disconnected - reconnecting...');
+      await this.camera.connect(this.serverOptions, this.activeWorkers[0].bot);
+    }
+  }
+
+  // What actually LANDED. The blocks-placed counter only counts commands we sent; this
+  // re-reads the world (from the lead bot's own copy of it, so it's free) and reports the
+  // blocks that aren't there. A silently-truncated build now shows up as a number instead
+  // of a missing roof.
+  verifyBuild(plan) {
+    const bot = this.activeWorkers[0]?.bot;
+    if (!bot) return null;
+    const expected = new Map();   // last write wins, same as the build order
+    for (const role of plan.buildOrder || Object.keys(plan.assignments))
+      for (const b of plan.assignments[role]?.blocks || []) expected.set(`${b.x},${b.y},${b.z}`, b);
+
+    let missing = 0;
+    const byType = {};
+    for (const b of expected.values()) {
+      // A flower or sapling set on an unsuitable support pops off by itself - that's the
+      // build's own business, not a dropped command. Only count STRUCTURE that never landed.
+      if (POPS_OFF.test(b.type)) continue;
+      const got = bot.blockAt(new Vec3(b.x, b.y, b.z));
+      if (got && got.name === 'air') { missing++; byType[b.type] = (byType[b.type] || 0) + 1; }
+    }
+    return { expected: expected.size, missing, byType };
+  }
+
   async executeBuild(prompt, options = {}) {
-    const { origin = { x: 0, y: 64, z: 0 }, sequential = false } = options;
+    // `aimCamera: false` for callers that own the camera themselves (the web panel parks it
+    // once per plot, so it can frame the whole build grid instead of chasing each build).
+    const { origin = { x: 0, y: 64, z: 0 }, sequential = false, aimCamera = true } = options;
+    await this.ensureAlive();
 
     // Get the plan from coordinator
     const plan = await this.coordinator.planBuild(prompt, {
@@ -43,12 +116,13 @@ export class Crew {
     }
     await this.sleep(1000);
 
-    // Start the browser viewer now that the bots are AT the build site. The viewer
-    // locks its camera onto the bound bot's first reported position, so starting it
-    // here frames the build (not the bots' spawn point). One shared view for the crew.
-    if (this.activeWorkers.length > 0) {
-      await startViewer(this.activeWorkers[0].bot);
-    }
+    // Aim the camera at the site and start the browser view from IT, not from a worker.
+    // The viewer locks its camera onto the bound bot's first reported position, so aiming
+    // before starting frames the build (not the bots' spawn point). The camera then holds
+    // still for the whole build, which is what keeps the render honest - see src/camera.js.
+    if (aimCamera) await this.aimCamera(origin);
+    const eye = this.viewerBot();
+    if (eye) await startViewer(eye);
 
     // Clear area
     const allBlocks = Object.values(plan.assignments).flatMap(a => a.blocks);
@@ -134,6 +208,14 @@ export class Crew {
     const totalBlocks = this.activeWorkers.reduce((sum, w) => sum + w.blocksPlaced, 0);
     console.log(`\nTotal blocks placed: ${totalBlocks}`);
 
+    const check = this.verifyBuild(plan);
+    if (check && check.missing > 0) {
+      const worst = Object.entries(check.byType).sort((a, b) => b[1] - a[1]).slice(0, 5)
+        .map(([t, n]) => `${t} x${n}`).join(', ');
+      console.warn(`[Crew] WARNING: ${check.missing} of ${check.expected} blocks are not in the world - the build is incomplete (${worst}).`);
+    }
+    plan.verified = check;
+
     return plan;
   }
 
@@ -144,6 +226,7 @@ export class Crew {
       await this.sleep(300);
       worker.disconnect();
     }
+    if (this.camera) { this.camera.disconnect(); this.camera = null; }
     this.workers.clear();
     this.activeWorkers = [];
   }

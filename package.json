@@ -16,10 +16,16 @@
     "server:stop": "node scripts/server.js stop",
     "server:logs": "docker logs -f minecraft-agentic",
     "server:reset": "node scripts/server.js reset",
+    "server:recreate": "node scripts/server.js recreate",
+    "postinstall": "node scripts/patch-viewer.js",
+    "test": "node test/pick-ground.test.mjs && node test/preset-audit.test.mjs && node scripts/patch-viewer.js --check",
+    "test:presets": "node test/preset-audit.test.mjs",
     "e2e": "node src/e2e-test.js",
     "replay": "node src/crew-replay.js",
     "setup": "node scripts/setup.js",
-    "ops": "node scripts/gen-ops.js"
+    "ops": "node scripts/gen-ops.js",
+    "test:viewer": "node test/viewer-sync.test.mjs",
+    "record": "node scripts/record-demo.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
@@ -34,7 +40,8 @@
     "canvas": "^3.2.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "playwright": "^1.61.1"
   },
   "overrides": {
     "uuid": "^11.1.1"

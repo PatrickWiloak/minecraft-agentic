@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { createBot, waitForSpawn } from './bot.js';
 import { Builder } from './builder.js';
 import { BuilderAgent } from './agent.js';
-import { startViewer } from './viewer.js';
+import { attachViewer } from './viewer.js';
 import { requireApiKey, requireMinecraftServer } from './preflight.js';
 
 const DEMO_BUILDS = [
@@ -41,7 +41,7 @@ async function demo() {
   await builder.init();
 
   // Open the browser viewer so you can watch without the Minecraft game
-  await startViewer(bot);
+  await attachViewer(bot);
 
   await sleep(1000);
 

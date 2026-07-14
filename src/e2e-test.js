@@ -9,7 +9,7 @@ import 'dotenv/config';
 import http from 'http';
 import { createRequire } from 'module';
 import { createBot, waitForSpawn } from './bot.js';
-import { startViewer } from './viewer.js';
+import { attachViewer } from './viewer.js';
 import { requireMinecraftServer } from './preflight.js';
 
 const require = createRequire(import.meta.url);
@@ -34,7 +34,7 @@ async function main() {
   await waitForSpawn(bot);
   pass('bot connected and spawned');
 
-  const viewerStarted = await startViewer(bot);
+  const viewerStarted = await attachViewer(bot);
   await sleep(2500); // let the express server bind
   if (viewerStarted) {
     const code = await httpOk(`http://localhost:${PORT}/`);
