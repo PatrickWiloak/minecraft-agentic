@@ -3,8 +3,3 @@ node_modules/
 *.log
 .DS_Store
 docs/media/*.mp4
-
-# Local knowledge graph (graphify). Regenerable from the source with `graphify update .`,
-# so it is machine-local here: committing it bloats the clone and ships an internal map of
-# the codebase that nobody cloning this repo asked for.
-graphify-out/
