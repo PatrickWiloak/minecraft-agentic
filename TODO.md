@@ -40,6 +40,12 @@ Working task list for **minecraft-agentic**. Read this at the start of a work se
 
 ## Done
 
+- [x] ~~**Transferred to the org: github.com/NoblerWorks-HQ/minecraft-agentic** (same home as
+      IRONSIGHT), a few minutes after the public flip. Topics, homepage, wiki/projects-off, and
+      private vulnerability reporting all survived the transfer; repo URLs in package.json /
+      README badge / SECURITY.md repointed; local remote updated; CI green under the org. GitHub
+      permanently redirects the old PatrickWiloak URLs~~ ✅ done 2026-07-30
+
 - [x] ~~**PUBLISHED PUBLIC 2026-07-30.** History squashed to a single initial commit before the
       flip (the old log carried "WIP updates", graphify add-then-remove churn, and "commit pending
       working-tree changes" - the project's real story lives in this file's Done log, which
