@@ -1,0 +1,16 @@
+name: Feature request
+description: An idea for the builders, the panel, or the loops
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What should it do, and what would you use it for?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds you've tried
+      description: Optional - what you do today instead.

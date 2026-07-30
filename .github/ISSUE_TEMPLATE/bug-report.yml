@@ -1,0 +1,53 @@
+name: Bug report
+description: Something broke, silently or loudly
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      placeholder: |
+        1. npm run web
+        2. prompt "a wizard tower"
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: AI backend
+      options:
+        - No key (library presets)
+        - Gemini
+        - Claude
+        - OpenAI
+        - Ollama
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node version, and whether you used the bundled Docker server (`npm run server`) or your own.
+      placeholder: |
+        OS: Ubuntu 24.04 (WSL2)
+        Node: 22.x
+        Server: bundled (npm run server) / own server, version 1.20.1
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / verifyBuild output
+      description: |
+        Paste the relevant terminal output. If the build "finished" but looks wrong, include
+        the `verifyBuild` line (missing-block count) - it distinguishes a broken build from a
+        broken picture of it. Check for `duplicate_login` / `keepAliveError` kicks too.
+      render: text

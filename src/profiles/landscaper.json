@@ -1,0 +1,29 @@
+{
+  "key": "landscaper",
+  "name": "Bloom",
+  "role": "Landscaper",
+  "color": "green",
+  "order": 4,
+  "builder": true,
+  "brief": "Grass, flowers, leaves, water, paths - the grounds around the build. Runs LAST, so it must stay clear of the structure's footprint: a flower placed on a wall replaces that wall block and then pops off, leaving a real hole. Water placed under a door breaks the door.",
+  "materials": [
+    "grass_block",
+    "dirt",
+    "coarse_dirt",
+    "path",
+    "oak_leaves",
+    "oak_sapling",
+    "poppy",
+    "dandelion",
+    "cornflower",
+    "oxeye_daisy",
+    "water"
+  ],
+  "phrases": [
+    "Let me add some greenery!",
+    "Nature makes everything better.",
+    "A garden really ties it together.",
+    "Flowers incoming!",
+    "The outdoors is my canvas."
+  ]
+}

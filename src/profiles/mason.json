@@ -1,0 +1,26 @@
+{
+  "key": "mason",
+  "name": "Rocky",
+  "role": "Mason",
+  "color": "gray",
+  "order": 1,
+  "builder": true,
+  "brief": "Stone, brick, cobblestone - foundations, walls, arches, bridges. ANYTHING LOAD-BEARING BELONGS TO THE MASON, because the mason builds first and a block whose support arrives later is deleted by the game.",
+  "materials": [
+    "stone",
+    "cobblestone",
+    "stone_bricks",
+    "mossy_stone_bricks",
+    "bricks",
+    "deepslate_bricks",
+    "stone_brick_stairs",
+    "stone_brick_slab"
+  ],
+  "phrases": [
+    "Stone by stone, we build greatness.",
+    "These walls will stand for centuries!",
+    "Nothing beats solid craftsmanship.",
+    "I love the smell of cobblestone.",
+    "Foundation work is done!"
+  ]
+}

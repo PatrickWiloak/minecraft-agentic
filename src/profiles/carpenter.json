@@ -1,0 +1,27 @@
+{
+  "key": "carpenter",
+  "name": "Woody",
+  "role": "Carpenter",
+  "color": "yellow",
+  "order": 2,
+  "builder": true,
+  "brief": "Wood, planks, logs, stairs - framing, floors, roofs, doors. Doors are two blocks tall and need support from a role that runs BEFORE them, so a door only ever stands on mason work.",
+  "materials": [
+    "oak_planks",
+    "oak_log",
+    "oak_stairs",
+    "oak_slab",
+    "spruce_planks",
+    "spruce_stairs",
+    "dark_oak_planks",
+    "oak_fence",
+    "oak_door"
+  ],
+  "phrases": [
+    "Wood you look at that!",
+    "Measure twice, place once!",
+    "Oak is my favorite.",
+    "These planks are premium quality.",
+    "The roof is coming together!"
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "name": "minecraft-agentic",
+  "version": "0.1.0",
+  "description": "AI agents that build Minecraft worlds while you watch - live in your browser, no Minecraft account needed",
+  "license": "MIT",
+  "author": "Nobler Works (https://noblerworks.com/)",
+  "homepage": "https://github.com/PatrickWiloak/minecraft-agentic#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PatrickWiloak/minecraft-agentic.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PatrickWiloak/minecraft-agentic/issues"
+  },
+  "keywords": [
+    "minecraft",
+    "mineflayer",
+    "ai-agents",
+    "multi-agent",
+    "llm",
+    "claude",
+    "gemini",
+    "autonomous-agents",
+    "prismarine-viewer"
+  ],
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "demo": "node src/demo.js",
+    "crew": "node src/multi-demo.js",
+    "offline": "node src/offline-demo.js",
+    "play": "node scripts/play.js",
+    "web": "node scripts/web.js",
+    "server": "node scripts/server.js up",
+    "server:stop": "node scripts/server.js stop",
+    "server:logs": "docker logs -f minecraft-agentic",
+    "server:reset": "node scripts/server.js reset",
+    "server:recreate": "node scripts/server.js recreate",
+    "postinstall": "node scripts/patch-viewer.js",
+    "test": "node test/pick-ground.test.mjs && node test/agent-loops.test.mjs && node test/ops.test.mjs && node test/preset-audit.test.mjs && node scripts/patch-viewer.js --check",
+    "test:presets": "node test/preset-audit.test.mjs",
+    "test:loops": "node test/agent-loops.test.mjs",
+    "test:ops": "node test/ops.test.mjs",
+    "e2e": "node src/e2e-test.js",
+    "replay": "node src/crew-replay.js",
+    "setup": "node scripts/setup.js",
+    "ops": "node scripts/gen-ops.js",
+    "test:viewer": "node test/viewer-sync.test.mjs",
+    "record": "node scripts/record-demo.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
+    "@google/generative-ai": "^0.24.1",
+    "dotenv": "^16.4.5",
+    "mineflayer": "^4.23.0",
+    "mineflayer-pathfinder": "^2.4.5",
+    "openai": "^6.46.0",
+    "prismarine-viewer": "^1.28.0"
+  },
+  "optionalDependencies": {
+    "canvas": "^3.2.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "playwright": "^1.61.1"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
+  }
+}
