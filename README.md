@@ -24,7 +24,7 @@ If you want something like Minecraft Agentic Builder built for your domain, [get
 **Watch a crew of AI agents design and build castles in Minecraft - live, in your browser.
 You don't even need to own the game.**
 
-[![CI](https://github.com/PatrickWiloak/minecraft-agentic/actions/workflows/ci.yml/badge.svg)](https://github.com/PatrickWiloak/minecraft-agentic/actions/workflows/ci.yml)
+[![CI](https://github.com/NoblerWorks-HQ/minecraft-agentic/actions/workflows/ci.yml/badge.svg)](https://github.com/NoblerWorks-HQ/minecraft-agentic/actions/workflows/ci.yml)
 [![Node 20+](https://img.shields.io/badge/node-20%2B-brightgreen)](https://nodejs.org)
 [![Minecraft 1.20.1](https://img.shields.io/badge/minecraft-1.20.1-blue)](https://www.minecraft.net)
 [![Works with no API key](https://img.shields.io/badge/API%20key-optional-orange)](#-pick-your-ai)

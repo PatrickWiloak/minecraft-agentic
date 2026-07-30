@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Please report vulnerabilities privately via
-[GitHub private vulnerability reporting](https://github.com/PatrickWiloak/minecraft-agentic/security/advisories/new)
+[GitHub private vulnerability reporting](https://github.com/NoblerWorks-HQ/minecraft-agentic/security/advisories/new)
 (preferred) or by email to patricklukewilson@gmail.com. Don't open a public issue for
 anything exploitable.
 

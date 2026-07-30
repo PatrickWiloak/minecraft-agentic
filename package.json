@@ -4,13 +4,13 @@
   "description": "AI agents that build Minecraft worlds while you watch - live in your browser, no Minecraft account needed",
   "license": "MIT",
   "author": "Nobler Works (https://noblerworks.com/)",
-  "homepage": "https://github.com/PatrickWiloak/minecraft-agentic#readme",
+  "homepage": "https://github.com/NoblerWorks-HQ/minecraft-agentic#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/PatrickWiloak/minecraft-agentic.git"
+    "url": "git+https://github.com/NoblerWorks-HQ/minecraft-agentic.git"
   },
   "bugs": {
-    "url": "https://github.com/PatrickWiloak/minecraft-agentic/issues"
+    "url": "https://github.com/NoblerWorks-HQ/minecraft-agentic/issues"
   },
   "keywords": [
     "minecraft",
