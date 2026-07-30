@@ -30,9 +30,9 @@ You don't even need to own the game.**
 [![Works with no API key](https://img.shields.io/badge/API%20key-optional-orange)](#-pick-your-ai)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
-<img src="docs/media/crew-castle-cherry-1600x900-14JUL2026.png" alt="Stonewatch Keep, built block-by-block by four AI bots, captured live from the built-in browser viewer" width="800">
+<img src="docs/media/crew-castle-cherry-1600x900-30JUL2026.png" alt="Stonewatch Keep, built block-by-block by four AI bots, captured live from the built-in browser viewer" width="800">
 
-*Stonewatch Keep (2,559 blocks, every one verified in-world) on the Cherry Grove scene, minutes
+*Stonewatch Keep (3,188 blocks, every one verified in-world) on the Cherry Grove scene, minutes
 after Rocky, Woody, Fancy, and Bloom finished it - a straight screenshot of the built-in
 browser viewer. No Minecraft client involved.*
 
