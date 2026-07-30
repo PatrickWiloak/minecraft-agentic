@@ -10,7 +10,8 @@ npm run web           # everything in one browser tab - opens http://localhost:8
 `npm run web` does everything: starts the Docker Minecraft server (first run downloads it and
 generates the world, ~1 min), hires the crew, and opens your browser on the control panel - a
 prompt box, the curated presets, the scene chips, and the live 3D view, all on one URL. The page
-opens immediately on a loading screen that shows each startup step as it completes, so you can
+opens immediately on a loading screen that shows each startup step as it completes, and the 3D
+view keeps its own progress bar until the world has actually streamed in and meshed, so you can
 watch it come up.
 
 Prefer the terminal? `npm run play` gives you the same builds from a menu and a read-only 3D view

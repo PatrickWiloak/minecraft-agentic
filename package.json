@@ -14,13 +14,18 @@
   },
   "keywords": [
     "minecraft",
+    "minecraft-bot",
     "mineflayer",
     "ai-agents",
     "multi-agent",
     "llm",
     "claude",
     "gemini",
+    "openai",
+    "ollama",
+    "generative-ai",
     "autonomous-agents",
+    "ai-builder",
     "prismarine-viewer"
   ],
   "type": "module",

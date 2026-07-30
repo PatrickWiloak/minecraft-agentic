@@ -40,6 +40,17 @@ Working task list for **minecraft-agentic**. Read this at the start of a work se
 
 ## Done
 
+- [x] ~~**Post-publish doc audit + SEO pass.** Gaps found and fixed: the README Contributing
+      section predated CONTRIBUTING.md and never linked it (or SECURITY.md); the loading-screen
+      copy in README/SETUP described only the boot steps, not the 3D pane's mesh-progress
+      preloader; LICENSE still named Patrick personally while package.json and the repo owner
+      say Nobler Works. Verified all media references resolve and all README anchors have
+      targets (the camera-bot one is an explicit `<a name>`, not a heading - fine). SEO: repo
+      description rewritten keyword-rich, topics 9 -> 18 (nodejs/javascript/ai/bot/generative-ai/
+      minecraft-bot/agents/openai/game-ai), package.json keywords widened to match, and the
+      README got a natural-language keyword line under the tagline (multi-agent AI Minecraft
+      builder / LLM / Mineflayer) since Google indexes GitHub READMEs~~ ✅ done 2026-07-30
+
 - [x] ~~**Transferred to the org: github.com/NoblerWorks-HQ/minecraft-agentic** (same home as
       IRONSIGHT), a few minutes after the public flip. Topics, homepage, wiki/projects-off, and
       private vulnerability reporting all survived the transfer; repo URLs in package.json /

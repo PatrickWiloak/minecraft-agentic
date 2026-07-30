@@ -24,6 +24,10 @@ If you want something like Minecraft Agentic Builder built for your domain, [get
 **Watch a crew of AI agents design and build castles in Minecraft - live, in your browser.
 You don't even need to own the game.**
 
+*An open-source multi-agent AI Minecraft builder: an LLM (Claude, Gemini, GPT, Ollama - or a
+free built-in library, no API key) designs the build, and four Mineflayer bots construct it
+block by block on a local server while you watch.*
+
 [![CI](https://github.com/NoblerWorks-HQ/minecraft-agentic/actions/workflows/ci.yml/badge.svg)](https://github.com/NoblerWorks-HQ/minecraft-agentic/actions/workflows/ci.yml)
 [![Node 20+](https://img.shields.io/badge/node-20%2B-brightgreen)](https://nodejs.org)
 [![Minecraft 1.20.1](https://img.shields.io/badge/minecraft-1.20.1-blue)](https://www.minecraft.net)
@@ -74,8 +78,9 @@ npm run web      # everything in one browser tab (recommended)
 
 That's the whole setup. `npm run web` starts a local Minecraft server (first run downloads
 it, ~1 min), hires the crew, and **opens your browser on http://localhost:8080** - on a
-loading screen that shows each startup step ticking over, so you're never staring at a
-blank page wondering if it hung.
+loading screen that shows each startup step ticking over, then a progress bar over the 3D
+pane that tracks the world actually streaming in, so you're never staring at a blank page
+wondering if it hung.
 
 Prefer the terminal? `npm run play` gives you the same builds from a menu, with a read-only
 3D view at `http://localhost:3000`.
@@ -522,4 +527,6 @@ this exists.
 
 PRs welcome - this is meant to be a fun, hackable starting point. Good first PRs: a new
 library preset (see [`src/library/index.js`](src/library/index.js) - the primitives make it
-easy), a new scene, a new personality, a new provider. [MIT licensed](LICENSE).
+easy), a new scene, a new personality, a new provider. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md) (setup, which tests to run for which change) and report
+vulnerabilities via [SECURITY.md](SECURITY.md). [MIT licensed](LICENSE).
