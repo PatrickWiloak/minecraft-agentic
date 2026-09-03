@@ -2,13 +2,25 @@
 /**
  * The CI gate, run locally on `git push`.
  *
- * WHY THIS EXISTS. GitHub Actions has been blocked account-wide since
- * 2026-08-14 on a failed payment - every run on every repo fails in ~3 seconds
- * ("The job was not started because recent account payments have failed"),
- * before executing a single step. The last green run anywhere was 2026-08-10.
- * Sixteen repos carry a ci.yml and not one of them has run since. This restores
- * the gate on the workstation, at `git push` - the moment work leaves the
- * machine.
+ * WHY THIS EXISTS. GitHub Actions was blocked account-wide from 2026-08-09
+ * to 2026-08-31 - every run on every repo failed in ~3 seconds ("The job was
+ * not started because recent account payments have failed"), before executing
+ * a single step. Sixteen repos carried a ci.yml and not one of them ran. This
+ * restores the gate on the workstation, at `git push` - the moment work leaves
+ * the machine.
+ *
+ * IT NOW CHECKS INSTEAD OF ASSUMING (2026-09-03). The original printed
+ * "GitHub Actions is off (billing)" unconditionally and ran the full gate
+ * every time - so once billing was fixed, every push in sixteen repos paid
+ * ~4 minutes to redo work Actions was already doing, while the banner said
+ * something false. The gate now asks GitHub whether the last CI run went
+ * green and steps aside when it did.
+ *
+ * THE SKIP IS FAIL-SAFE, and that direction is the whole design. It stands
+ * down ONLY on a positive, recent green from `gh`. Every uncertainty - no gh,
+ * not authenticated, no network, no ci.yml, no runs, a stale last run, a red
+ * last run - RUNS the gate. Being wrong about "Actions has this" means
+ * shipping unchecked code; being wrong the other way costs four minutes.
  *
  * GENERATED FILE. Canonical source:
  *   ~/coding/engineering-standards/scripts/templates/check-ci-local.mjs
@@ -29,6 +41,7 @@
  *     what it does NOT cover. A green run that skipped half of CI must say so.
  *
  * Bypass: `git push --no-verify`, or SKIP_LOCAL_CI=1.
+ * Force the gate even when Actions is green: LOCAL_CI_FORCE=1.
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -67,7 +80,77 @@ if (range) {
   }
 }
 
-console.log(`${C.c}[local-ci] GitHub Actions is off (billing). Running the gate here.${C.n}`);
+// ── is GitHub Actions actually covering this push? ───────────────────────────
+// Returns a reason to RUN the gate, or null when Actions is confirmed healthy
+// and we can stand down. Every failure path returns a reason: we skip only on
+// evidence, never on the absence of it.
+function reasonToRunGate() {
+  if (process.env.LOCAL_CI_FORCE === '1') return 'LOCAL_CI_FORCE=1';
+  if (!existsSync(join(ROOT, '.github/workflows/ci.yml'))) return 'no .github/workflows/ci.yml';
+
+  const gh = spawnSync(
+    'gh',
+    ['run', 'list', '--workflow', 'ci.yml', '--limit', '1',
+     '--json', 'conclusion,status,createdAt,updatedAt,url'],
+    { cwd: ROOT, encoding: 'utf8', timeout: 15000 }
+  );
+  if (gh.error || gh.status !== 0) {
+    const why = gh.error?.code === 'ENOENT' ? 'gh not installed'
+      : gh.error?.code === 'ETIMEDOUT' ? 'gh timed out'
+      : 'gh could not read run history';
+    return why;
+  }
+
+  let runs;
+  try { runs = JSON.parse(gh.stdout || '[]'); } catch { return 'gh returned unparseable JSON'; }
+  if (!Array.isArray(runs) || runs.length === 0) return 'no CI runs on record';
+
+  const [last] = runs;
+  // A queued or running job is itself proof that Actions is ALIVE: the outage
+  // this gate substitutes for kills runs in ~3s before a runner is ever
+  // assigned, so nothing ever reaches these states under it. Treating them as
+  // "unknown" made every rapid second push redo the full gate.
+  if (last.status === 'queued' || last.status === 'in_progress') return null;
+  if (last.status !== 'completed') return `last CI run is ${last.status}`;
+  // A red run is deliberately NOT a stand-down. Billing failures land here too,
+  // and if main is already broken a fast local signal beats waiting on CI.
+  if (last.conclusion !== 'success') {
+    // ...but SAY SO when the shape says billing rather than code. A run blocked
+    // on spend dies in seconds without assigning a runner, and GitHub reports it
+    // as "recent account payments have failed OR your spending limit needs to be
+    // increased" - naming the wrong cause first. That sentence sent us hunting a
+    // card for three weeks in Aug 2026 while the real cause was a $0 product
+    // budget with stop-usage on. A card is not a budget; check both.
+    const secs = (new Date(last.updatedAt) - new Date(last.createdAt)) / 1000;
+    if (Number.isFinite(secs) && secs >= 0 && secs < 20) {
+      console.log('');
+      console.log(`${C.y}[local-ci] ⚠  The last CI run failed in ${secs.toFixed(0)}s. That is too fast to be${C.n}`);
+      console.log(`${C.y}           your code - a run that dies before a runner is assigned is almost${C.n}`);
+      console.log(`${C.y}           always SPEND, not a failed payment, whatever the message says.${C.n}`);
+      console.log(`${C.d}           Check BOTH: Settings > Billing > Payment information, and${C.n}`);
+      console.log(`${C.d}           Settings > Billing > Budgets and alerts (a $0 budget with${C.n}`);
+      console.log(`${C.d}           "Stop usage: Yes" hard-stops every job and reads as $0 spent).${C.n}`);
+      if (last.url) console.log(`${C.d}           ${last.url}${C.n}`);
+    }
+    return `last CI run ${last.conclusion}`;
+  }
+
+  // A repo that has not pushed in a month proves nothing about today's billing.
+  const ageDays = (Date.now() - new Date(last.createdAt).getTime()) / 86400000;
+  if (!Number.isFinite(ageDays)) return 'last CI run has no usable timestamp';
+  if (ageDays > 30) return `last CI run is ${Math.round(ageDays)} days old`;
+
+  return null;
+}
+
+const runReason = reasonToRunGate();
+if (runReason === null) {
+  console.log(`${C.g}[local-ci] GitHub Actions is green - it covers this push. Standing down.${C.n}`);
+  console.log(`${C.d}           Force the local gate with LOCAL_CI_FORCE=1.${C.n}`);
+  process.exit(0);
+}
+
+console.log(`${C.c}[local-ci] Actions not confirmed green (${runReason}). Running the gate here.${C.n}`);
 if (range) console.log(`${C.d}           range: ${range}${C.n}`);
 console.log('');
 
